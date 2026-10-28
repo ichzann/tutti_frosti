@@ -1,0 +1,20 @@
+name: frostmap
+channels: [conda-forge]
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - pyarrow
+  - geopandas
+  - pyogrio
+  - rasterio
+  - xarray
+  - cfgrib
+  - scikit-learn
+  - pystac-client
+  - planetary-computer
+  - requests
+  - pyyaml
+  - astral
+  - matplotlib
+  - pillow
