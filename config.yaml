@@ -34,7 +34,7 @@ night:
 
 growth:
   emergence_evi2: 0.20
-  smoothing_window_obs: 3       # running-median window on field-median EVI2
+  smoothing_window_obs: 3       # simple rule: centered running median (3 clear obs) of field-median EVI2
 
 gpr:
   min_clear_obs_since_emergence: 4
@@ -43,3 +43,7 @@ gpr:
 
 damage:
   z_damaged: -2.0
+  # simple default (brief leaves the kernel open): constant * RBF + white noise,
+  # hyperparameters fitted per pixel by sklearn's marginal likelihood
+  kernel: "rbf_white"
+  length_scale_init_days: 20.0
