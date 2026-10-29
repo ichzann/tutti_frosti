@@ -1,6 +1,6 @@
 # All thresholds are initial proposals (Phase 1). Do not tune in this phase.
 study:
-  county_fips: "16011"          # tentative (Bingham) until step 0 for 2024 is confirmed. 2022 Teton run: no trigger night inside any growth phase (emergence ~Jul 1-9)
+  county_fips: "16011"          # Bingham County, ID (confirmed at step 0 for 2024). 2022 Teton run: no trigger night inside any growth phase (emergence ~Jul 1-9)
   candidate_counties: {Bingham: "16011", Jefferson: "16051", Bonneville: "16019"}
   year: 2024                    # widespread potato frost Jun 18-19, 2024 (station records + news)
   season_start: "2024-05-01"

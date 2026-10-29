@@ -21,6 +21,8 @@ from .common import cache_dir, county
 CROPSCAPE = "https://nassgeodata.gmu.edu/axis2/services/CDLService/GetCDLFile?year={y}&fips={f}"
 CONF_URL = ("https://www.nass.usda.gov/Research_and_Science/Cropland/Release/datasets/"
             "{y}_30m_Confidence_Layer.zip")
+# years published only as a 10 m national layer (~68 GB zip): streamed, see _stream_clip_10m
+CONF_URL_10M = {2024: "https://storage.googleapis.com/temp_cdl_share/2024_10m_confidence_layer.zip"}
 
 
 def _range(url, a, b):
@@ -99,6 +101,10 @@ def county_cdl(cfg, fips: str | None = None):
         xml = requests.get(CROPSCAPE.format(y=y, f=fips), timeout=300).text
         u = re.search(r"<returnURL>(.*?)</returnURL>", xml).group(1)
         cls_fp.write_bytes(requests.get(u, timeout=300).content)
+    if not conf_fp.exists() and y in CONF_URL_10M:
+        with rasterio.open(cls_fp) as c:
+            bounds = c.bounds
+        _stream_clip_10m(CONF_URL_10M[y], bounds, conf_fp, cache_dir(cfg, "_tmp"))
     if not conf_fp.exists():
         nat = cache_dir(cfg, "_tmp") / f"{y}_30m_confidence_layer.tif"
         if not nat.exists():
@@ -113,6 +119,140 @@ def county_cdl(cfg, fips: str | None = None):
         with rasterio.open(conf_fp, "w", **prof) as dst:
             dst.write(arr, 1)
     return cls_fp, conf_fp
+
+
+def _inflate_range(url, comp_start, comp_end, d, pos, sink, stop_at=None, checkpoints=None,
+                   ckpt_every=1 << 30, log=print):
+    """Inflate the deflate stream from compressed byte comp_start (decompressor `d` positioned at
+    uncompressed offset `pos`), calling sink(pos, bytes) for every output chunk, until the
+    compressed end or uncompressed offset stop_at. Restarts from the last checkpoint on network
+    errors. Returns the final uncompressed offset."""
+    ck = (comp_start, pos, d.copy())
+    last_ck = comp_start
+    off = comp_start
+    while True:
+        p = subprocess.Popen(["curl", "-s", "-L", "-r", f"{off}-{comp_end - 1}",
+                              "-y", "60", "-Y", "50000", url], stdout=subprocess.PIPE)
+        try:
+            while chunk := p.stdout.read(1 << 22):
+                buf = chunk
+                while buf and not d.eof:  # bounded output: nodata runs inflate ~1000x
+                    out = d.decompress(buf, 1 << 26)
+                    buf = d.unconsumed_tail
+                    if out:
+                        sink(pos, out)
+                        pos += len(out)
+                off += len(chunk)
+                if checkpoints is not None and off - last_ck >= ckpt_every:
+                    checkpoints.append((off, pos, d.copy()))
+                    last_ck = off
+                    log(f"  CDL stream {off / 1e9:.1f}/{comp_end / 1e9:.1f} GB")
+                if off - ck[0] >= ckpt_every:
+                    ck = (off, pos, d.copy())
+                if (stop_at is not None and pos >= stop_at) or d.eof:
+                    return pos
+        finally:
+            p.kill()
+            p.wait()
+        if off >= comp_end:
+            return pos
+        log(f"  CDL stream interrupted at {off / 1e9:.2f} GB, resuming")
+        off, pos, d = ck[0], ck[1], ck[2].copy()
+
+
+def _bigtiff_ifd(buf_read, ifd_off):
+    """Parse a little-endian BigTIFF IFD -> {tag: values}; buf_read(offset, n) -> bytes."""
+    types = {1: "B", 3: "H", 4: "I", 16: "Q", 12: "d", 2: "s", 7: "B", 11: "f"}
+    sizes = {"B": 1, "H": 2, "I": 4, "Q": 8, "d": 8, "s": 1, "f": 4}
+    n = struct.unpack("<Q", buf_read(ifd_off, 8))[0]
+    raw = buf_read(ifd_off + 8, 20 * n)
+    tags = {}
+    for k in range(n):
+        tag, typ, cnt = struct.unpack("<HHQ", raw[20 * k:20 * k + 12])
+        f = types.get(typ)
+        if f is None:
+            continue
+        nb = sizes[f] * cnt
+        data = raw[20 * k + 12:20 * k + 20] if nb <= 8 else \
+            buf_read(struct.unpack("<Q", raw[20 * k + 12:20 * k + 20])[0], nb)
+        tags[tag] = data[:nb] if f == "s" else struct.unpack(f"<{cnt}{f}", data[:nb])
+    return tags
+
+
+def _stream_clip_10m(url, bounds, out_fp, tmp, margin=256 << 20, log=print):
+    """Clip a national 10 m CDL confidence GeoTIFF stored deflated inside a zip, without
+    holding the archive or the inflated image on disk.
+
+    The deflate stream is not seekable and the BigTIFF IFD sits at its end, so: pass 1 inflates
+    the whole stream once (bytes are discarded) keeping in-memory decompressor checkpoints and
+    the bytes from shortly before the IFD to the end; pass 2 re-inflates, from the nearest
+    checkpoint, only the span holding the tiles of the window. Both go into a sparse temporary
+    file at their original offsets, which GDAL reads as a normal GeoTIFF; it is deleted after
+    the window is written."""
+    off, cs, meth = _zip_entry(url, "confidence_layer.tif")
+    assert meth == 8
+    lh = _range(url, off, off + 29)
+    fl, el = struct.unpack("<HH", lh[26:30])
+    c0 = off + 30 + fl + el
+    head = zlib.decompressobj(-15).decompress(_range(url, c0, c0 + 65535))
+    assert head[:4] == b"II+\x00", "expected little-endian BigTIFF"
+    ifd_off = struct.unpack("<Q", head[8:16])[0]
+    sparse = tmp / "cdlconf_sparse.tif"
+    sparse.unlink(missing_ok=True)
+    f = open(sparse, "w+b")
+    f.write(head[:16])
+    keep_from = max(16, ifd_off - margin)
+
+    def tail_sink(pos, b):
+        if pos + len(b) > keep_from:
+            s = max(0, keep_from - pos)
+            f.seek(pos + s)
+            f.write(b[s:])
+
+    ckpts = [(c0, 0, zlib.decompressobj(-15))]
+    log(f"CDL: streaming {cs / 1e9:.1f} GB (pass 1, nothing kept but the TIFF directory)")
+    _inflate_range(url, c0, c0 + cs, ckpts[0][2].copy(), 0, tail_sink, checkpoints=ckpts, log=log)
+
+    def rd(o, n):
+        if o < keep_from:
+            raise IOError(f"TIFF structure at {o} before kept tail {keep_from}; raise margin")
+        f.seek(o)
+        return f.read(n)
+
+    tg = _bigtiff_ifd(rd, ifd_off)
+    W, H = tg[256][0], tg[257][0]
+    tw, th = (tg[322][0], tg[323][0]) if 322 in tg else (W, tg[278][0])
+    offs, cnts = (tg[324], tg[325]) if 324 in tg else (tg[273], tg[279])
+    x0, y0 = tg[33922][3], tg[33922][4]
+    res = tg[33550][0]
+    c_a = int((bounds.left - x0) // res); c_b = int((bounds.right - x0) // res) + 1
+    r_a = int((y0 - bounds.top) // res); r_b = int((y0 - bounds.bottom) // res) + 1
+    ntx = -(-W // tw)
+    need = [ty * ntx + tx for ty in range(r_a // th, (r_b - 1) // th + 1)
+            for tx in range(c_a // tw, (c_b - 1) // tw + 1)]
+    lo = min(offs[i] for i in need)
+    hi = max(offs[i] + cnts[i] for i in need)
+    log(f"CDL: window {c_b - c_a}x{r_b - r_a} px, {len(need)} blocks in "
+        f"{(hi - lo) / 1e9:.2f} GB of the image (pass 2)")
+    ck = max((c for c in ckpts if c[1] <= lo), key=lambda c: c[1])
+
+    def span_sink(pos, b):
+        a, z = max(pos, lo), min(pos + len(b), hi)
+        if a < z:
+            f.seek(a)
+            f.write(b[a - pos:z - pos])
+
+    _inflate_range(url, ck[0], c0 + cs, ck[2].copy(), ck[1], span_sink, stop_at=hi, log=log)
+    f.close()
+    with rasterio.open(sparse) as src:
+        w = rasterio.windows.Window(c_a, r_a, c_b - c_a, r_b - r_a)
+        arr = src.read(1, window=w)
+        prof = dict(driver="GTiff", dtype=arr.dtype, count=1, crs=src.crs,
+                    transform=src.window_transform(w), width=arr.shape[1], height=arr.shape[0],
+                    compress="deflate", tiled=True)
+    with rasterio.open(out_fp, "w", **prof) as dst:
+        dst.write(arr, 1)
+    sparse.unlink()
 
 
 def cleanup(cfg):
