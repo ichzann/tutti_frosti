@@ -1,7 +1,9 @@
 # Frost damage map — Phase 1 baseline
 
 Per-pixel radiational frost damage maps for potato fields at Sentinel-2 resolution,
-for one county (Teton County, ID) and one season (2022).
+for one county (Bingham County, ID) and one season (2024).
+Step 0 history: Fremont/Teton 2022 dropped (all trigger nights outside the growth phase);
+2024 chosen for the widespread Jun 18-19 frost, Bingham over Jefferson/Bonneville.
 
 ## Run
 
@@ -31,11 +33,12 @@ Open `runs/<id>/report.html` directly in a browser (no server; Leaflet is loaded
 |---|---|---|
 | Weather | NOAA RTMA 2.5 km hourly (TMP, DPT, WIND, GUST, TCDC), byte-range reads of the needed GRIB messages from the NOAA AWS bucket, stream-and-discard | `cache/nights.parquet` (cell × night), `cache/rtma_cells.gpkg`, `cache/rtma_hours/` (county-window subsets per hour, resume cache only) |
 | Vegetation | Sentinel-2 L2A, Microsoft Planetary Computer; SCL 4/5 = clear, everything else masked; windows around field clusters only | `cache/s2/<field_id>.npz` (EVI2, RGB quicklook per date) |
-| Crop | USDA NASS CDL 2022: class from CropScape (by FIPS), confidence from the national release zip (only the GeoTIFF entry is streamed, clipped, deleted) | `cache/cdl/` |
+| Crop | USDA NASS CDL: class from CropScape (by FIPS, 30 m). Confidence: 30 m years from the national zip (GeoTIFF entry streamed, clipped, deleted); 2024 exists only as a 10 m national layer (68 GB zip), which is stream-inflated twice without being stored (pass 1 reads the TIFF directory at the end, pass 2 re-inflates only the county's span from an in-memory checkpoint) | `cache/cdl/` |
 | Fields | USDA NASS Crop Sequence Boundaries 2018–2025 (national archive downloaded once, candidate counties cut out, archive deleted) | `cache/csb_candidates.gpkg` |
 | Terrain | USGS 3DEP 10 m (Planetary Computer `3dep-seamless`) | `cache/dem/` |
 
-Field pixels = buffered (10 m inward) CSB potato polygon ≥ 4 ha AND CDL potato AND CDL confidence ≥ 75 %,
+Field pixels = buffered (10 m inward) CSB potato polygon ≥ 4 ha AND CDL potato AND CDL confidence ≥ `cdl_min_confidence`
+(brief: 75 %; 40 % for 2024, whose random-forest confidence has no Bingham potato pixel ≥ 75),
 on a 10 m grid aligned with Sentinel-2 (UTM 12N).
 
 `python -m data.step0` prints the step 0 county comparison (potato area, field terrain, trigger-night counts).
