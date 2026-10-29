@@ -13,7 +13,7 @@ paths:
 
 data:
   cdl_potato_class: 43
-  cdl_min_confidence: 75        # percent
+  cdl_min_confidence: 40        # percent. Brief: 75. Set to 40 by user for 2024: the 2024 10 m layer (GEE random-forest probabilities) tops out ~70 on Bingham potato (0 % of pixels >= 75); >= 40 keeps 68 %
   csb_release: "NationalCSB_2018-2025_rev23"
   csb_inward_buffer_m: 10
   min_field_area_ha: 4.0
