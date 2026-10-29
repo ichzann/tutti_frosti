@@ -83,7 +83,8 @@ def _read(href, bounds, out_shape):
 def _process_item(item, cl_list, fields, masks, clear_scl):
     item = pc.sign(item)
     foot = shape(item.geometry)
-    crs = f"EPSG:{item.properties['proj:epsg']}"
+    p = item.properties
+    crs = p.get("proj:code") or f"EPSG:{p['proj:epsg']}"
     res = []
     for bounds, idx in cl_list:
         if crs != "EPSG:32612":

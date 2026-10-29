@@ -1,6 +1,6 @@
 # All thresholds are initial proposals (Phase 1). Do not tune in this phase.
 study:
-  county_fips: "16043"          # Fremont County, ID  (fallback Teton: "16081")
+  county_fips: "16081"          # Teton County, ID (Fremont "16043" dropped at step 0: all 2022 trigger nights over potato fall in May, before emergence)
   candidate_counties: {Fremont: "16043", Teton: "16081"}
   year: 2022
   season_start: "2022-05-01"
