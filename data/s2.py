@@ -1,9 +1,11 @@
 """Sentinel-2 L2A (Planetary Computer) -> per-field clear-observation stacks.
 
 For every acquisition, SCL is read first over small windows around field
-clusters; the reflectance bands are read only where at least one field pixel
+clusters; the reflectance bands are read only where at least one polygon pixel
 is clear (SCL 4/5).  Per field we store, per acquisition date: EVI2 (NaN where
-not clear), an 8-bit RGB quicklook and the clear mask.
+not clear), an 8-bit RGB quicklook and the coverage mask.  Stacks cover the
+whole buffered polygon; the CDL potato/confidence rule is applied on load
+(data.store), so this step does not wait for the CDL layer.
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ from shapely.ops import unary_union
 import geopandas as gpd
 
 from .common import cache_dir, county
-from .fields import county_fields, field_mask
+from .fields import county_fields, polygon_mask
 
 STAC = "https://planetarycomputer.microsoft.com/api/stac/v1"
 BANDS = {"B02": "blue", "B03": "green", "B04": "red", "B08": "nir"}
@@ -135,7 +137,7 @@ def build(cfg, fips: str | None = None, workers=6, log=print):
     if acq_fp.exists():
         return acq_fp
     fields = county_fields(cfg, fips)
-    masks = [field_mask(cfg, r) for r in fields.itertuples()]
+    masks = [polygon_mask(cfg, r) for r in fields.itertuples()]
     keep = [i for i, m in enumerate(masks) if m.any()]
     fields = fields.iloc[keep].reset_index(drop=True)
     masks = [masks[i] for i in keep]
@@ -175,7 +177,7 @@ def build(cfg, fips: str | None = None, workers=6, log=print):
                     fill = (rgb8[t].sum(0) == 0) & (rec["rgb"].sum(0) > 0)
                     rgb8[t][:, fill] = rec["rgb"][:, fill]
         np.savez_compressed(out_dir / f"{r.field_id}.npz", dates=np.array(dates), evi2=ev,
-                            rgb=rgb8, covered=cov, mask=masks[i])
+                            rgb=rgb8, covered=cov, poly=masks[i])
     df = pd.DataFrame([(d, *v) for d, v in sorted(acq.items())],
                       columns=["date", "field_px", "covered_px", "clear_px"])
     df["clear_frac"] = df.clear_px / df.covered_px.where(df.covered_px > 0)

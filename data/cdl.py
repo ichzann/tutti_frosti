@@ -1,8 +1,8 @@
 """USDA Cropland Data Layer (class + confidence), clipped per county.
 
 Class: CropScape by-FIPS service (small).  Confidence: only the GeoTIFF entry of
-the national confidence zip is fetched (the overview file is skipped), inflated
-to a temporary file, clipped to the county and deleted.
+the national confidence zip is fetched (the overview file is skipped, resumable),
+inflated to a temporary file, clipped to the county and deleted.
 """
 from __future__ import annotations
 
@@ -64,19 +64,29 @@ def _zip_entry(url, suffix):
 
 
 def _download_entry(url, suffix, out):
+    """Fetch the entry's compressed bytes with resumable curl (restarts stalled transfers),
+    then inflate to `out`; the compressed part file is deleted."""
     off, cs, meth = _zip_entry(url, suffix)
     lh = _range(url, off, off + 29)
     fl, el = struct.unpack("<HH", lh[26:30])
     start = off + 30 + fl + el
+    part = out.with_suffix(".part")
+    for _ in range(50):
+        have = part.stat().st_size if part.exists() else 0
+        if have >= cs:
+            break
+        with open(part, "ab") as f:
+            subprocess.run(["curl", "-s", "-L", "-r", f"{start + have}-{start + cs - 1}",
+                            "-y", "60", "-Y", "50000", url], stdout=f)
+    if part.stat().st_size != cs:
+        raise IOError(f"incomplete download of {suffix}: {part.stat().st_size}/{cs} bytes")
     d = zlib.decompressobj(-15) if meth == 8 else None
-    with requests.get(url, headers={"Range": f"bytes={start}-{start + cs - 1}",
-                                    "User-Agent": "curl/8"}, stream=True, timeout=300) as r, \
-            open(out, "wb") as f:
-        r.raise_for_status()
-        for chunk in r.iter_content(1 << 22):
+    with open(part, "rb") as src, open(out, "wb") as f:
+        while chunk := src.read(1 << 24):
             f.write(d.decompress(chunk) if d else chunk)
         if d:
             f.write(d.flush())
+    part.unlink()
 
 
 def county_cdl(cfg, fips: str | None = None):

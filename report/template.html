@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frost damage run</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --fg:#1d1d1f; --mute:#6b6b70; --line:#d6d6da; --bg:#fafafa; --trig:#c0392b; --near:#e08e0b; --acq:#2c6fbb; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:13px/1.4 system-ui, sans-serif; color:var(--fg); background:var(--bg); }
+  header { padding:8px 14px; border-bottom:1px solid var(--line); display:flex; gap:18px; align-items:baseline; flex-wrap:wrap; }
+  header h1 { font-size:15px; margin:0; }
+  header span { color:var(--mute); }
+  #timeline { padding:4px 14px 0; }
+  #timeline svg { width:100%; height:128px; display:block; cursor:pointer; }
+  #nightinfo { padding:2px 14px 6px; color:var(--mute); min-height:20px; }
+  #nightinfo b { color:var(--fg); }
+  main { display:grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap:10px; padding:0 14px 14px; }
+  #map { height:640px; border:1px solid var(--line); background:#ddd; }
+  .panel { border:1px solid var(--line); background:#fff; padding:8px 10px; min-height:640px; }
+  .ctrl { margin:6px 0; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .ctrl button { border:1px solid var(--line); background:#fff; padding:3px 8px; border-radius:4px; cursor:pointer; font:inherit; }
+  .ctrl button.on { background:var(--fg); color:#fff; border-color:var(--fg); }
+  .imgs { display:flex; gap:8px; flex-wrap:wrap; }
+  .imgs figure { margin:0; }
+  .imgs img { width:220px; image-rendering:pixelated; background:#eee; border:1px solid var(--line); display:block; }
+  .imgs figcaption { font-size:12px; color:var(--mute); }
+  .legend { background:#fff; padding:6px 8px; border:1px solid var(--line); font-size:12px; line-height:1.5; }
+  .sw { display:inline-block; width:12px; height:12px; vertical-align:middle; margin-right:4px; border:1px solid #999; }
+  .meta td { padding:0 10px 0 0; vertical-align:top; } .meta td:first-child { color:var(--mute); }
+  #ts svg { width:100%; height:220px; display:block; }
+  .note { color:var(--mute); font-size:12px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } #map { height:420px; } }
+</style>
+</head>
+<body>
+<header><h1 id="title"></h1><span id="sub"></span></header>
+<div id="timeline"><svg id="tl"></svg></div>
+<div id="nightinfo"></div>
+<main>
+  <div>
+    <div class="ctrl">Field colour:
+      <button data-m="share_damaged" class="on">share damaged (z ≤ −2)</button>
+      <button data-m="mean_z">mean z</button>
+      <button data-m="valid_share">valid pixel share</button>
+    </div>
+    <div id="map"></div>
+  </div>
+  <div class="panel" id="field"><p class="note">Click a field on the map.</p></div>
+</main>
+<script>
+const D = /*DATA*/null;
+const COLS = Object.fromEntries(D.fn_cols.map((c, i) => [c, i]));
+const S0 = new Date(D.meta.season_start + "T00:00:00Z");
+const dayOf = s => Math.round((new Date(s + "T00:00:00Z") - S0) / 864e5);
+const nightDates = Object.keys(D.nights).sort();
+const NDAYS = dayOf(nightDates[nightDates.length - 1]) + 16;
+// default night: the flagged night with the most evaluated fields in trigger (then near-trigger) cells
+const inPhase = (n, k) => Object.values(D.fn[n] || {}).filter(r => r[COLS.growth_stage] === "growth" && r[COLS.n_valid] > 0 && (k ? r[COLS[k]] : true)).length;
+const best = k => D.meta.flagged_nights.filter(n => inPhase(n, k) > 0).sort((a, b) => inPhase(b, k) - inPhase(a, k))[0];
+let selNight = best("trigger") || best("near_trigger") || best(null) || D.meta.flagged_nights[0] || nightDates[0];
+let selField = null, metric = "share_damaged", layer = "z";
+const hp = new URLSearchParams(location.hash.slice(1));
+if (D.nights[hp.get("night")]) selNight = hp.get("night");
+if (D.detail[hp.get("field")]) selField = hp.get("field");
+const saveHash = () => history.replaceState(null, "", "#night=" + selNight + (selField ? "&field=" + selField : ""));
+
+document.getElementById("title").textContent = `Frost damage map — run ${D.meta.run_id}`;
+document.getElementById("sub").textContent =
+  `county ${D.meta.county_fips} · method ${D.meta.method} · ${D.meta.n_fields} fields · ` +
+  `${D.meta.n_field_nights} field-nights (${D.meta.n_rendered} with pixel images) · commit ${(D.meta.git_commit || "").slice(0, 10)}`;
+
+// ---------------------------------------------------------------- colours --
+const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const hex = c => "#" + c.map(v => v.toString(16).padStart(2, "0")).join("");
+function seq(t) { // white -> dark red
+  t = Math.max(0, Math.min(1, t));
+  const stops = [[255, 247, 236], [253, 187, 132], [227, 74, 51], [127, 0, 0]];
+  const k = Math.min(2, Math.floor(t * 3)); return hex(lerp(stops[k], stops[k + 1], t * 3 - k));
+}
+function div(z) { // mean z: red (negative) - white - blue (positive), clipped at ±3
+  const t = Math.max(-1, Math.min(1, z / 3));
+  return hex(t < 0 ? lerp([247, 247, 247], [178, 24, 43], -t) : lerp([247, 247, 247], [33, 102, 172], t));
+}
+const doseCol = d => seq(Math.min(1, d / 20));
+
+// --------------------------------------------------------------- timeline --
+function stageBands() {
+  if (selField) { const d = D.detail[selField]; return [d.emergence, d.peak]; }
+  const e = [], p = [];
+  for (const k in D.detail) { if (D.detail[k].emergence) e.push(D.detail[k].emergence); if (D.detail[k].peak) p.push(D.detail[k].peak); }
+  e.sort(); p.sort();
+  return [e[Math.floor(e.length / 2)], p[Math.floor(p.length / 2)]];
+}
+function drawTimeline() {
+  const svg = document.getElementById("tl"), W = svg.clientWidth, H = 128, L = 70, R = 10;
+  const x = d => L + (W - L - R) * d / NDAYS;
+  let s = "";
+  const [em, pk] = stageBands();
+  const band = (a, b, col, lab) => {
+    if (a == null || b == null) return;
+    s += `<rect x="${x(a)}" y="14" width="${Math.max(0, x(b) - x(a))}" height="${H - 34}" fill="${col}"/>`;
+    s += `<text x="${x(a) + 3}" y="24" font-size="10" fill="#777">${lab}</text>`;
+  };
+  const eD = em ? dayOf(em) : null, pD = pk ? dayOf(pk) : null;
+  band(0, eD ?? NDAYS, "#f1efe8", "pre-emergence");
+  band(eD, pD ?? NDAYS, "#e6f2e1", "growth (emergence → peak)");
+  band(pD, NDAYS, "#f1efe8", "post-peak");
+  s += `<text x="4" y="40" font-size="11" fill="#444">trigger</text><text x="4" y="62" font-size="11" fill="#444">near-trig.</text><text x="4" y="86" font-size="11" fill="#444">S2</text>`;
+  for (const n of nightDates) {
+    const nd = D.nights[n], d = dayOf(n), w = Math.max(2, x(1) - x(0) - 1);
+    if (nd.ptrig) s += `<rect x="${x(d)}" y="30" width="${w}" height="14" fill="${doseCol(nd.maxdose)}" stroke="${"#7f0000"}" stroke-width="0.6"><title>${n}: trigger in ${nd.ptrig} potato cells, max dose ${nd.maxdose} °C·h</title></rect>`;
+    if (nd.pnear) s += `<rect x="${x(d)}" y="52" width="${w}" height="14" fill="#fde7c2" stroke="${"#e08e0b"}" stroke-width="0.8"><title>${n}: near-trigger in ${nd.pnear} potato cells</title></rect>`;
+  }
+  for (const [a, cf] of D.acq) {
+    const d = dayOf(a); if (d < 0 || d > NDAYS) continue;
+    const op = cf == null ? 0.08 : 0.12 + 0.88 * cf;
+    s += `<circle cx="${x(d) + 1}" cy="82" r="4" fill="var(--acq)" fill-opacity="${op}" stroke="var(--acq)" stroke-opacity="${Math.max(op, .3)}"><title>${a}: clear share of field pixels ${cf == null ? "n/a" : Math.round(cf * 100) + "%"}</title></circle>`;
+  }
+  for (let m = 0; m < 6; m++) {
+    const dt = new Date(Date.UTC(S0.getUTCFullYear(), S0.getUTCMonth() + m, 1)), d = Math.round((dt - S0) / 864e5);
+    s += `<line x1="${x(d)}" x2="${x(d)}" y1="96" y2="102" stroke="#999"/><text x="${x(d) + 2}" y="114" font-size="11" fill="#666">${dt.toLocaleString("en", { month: "short", timeZone: "UTC" })}</text>`;
+  }
+  s += `<line x1="${x(dayOf(selNight)) + 1}" x2="${x(dayOf(selNight)) + 1}" y1="10" y2="${H - 18}" stroke="#000" stroke-width="2"/>`;
+  s += `<text x="${L}" y="${H - 2}" font-size="10" fill="#777">trigger fill = max dose over potato cells (0→20+ °C·h) · S2 dot opacity = clear share · band = ${selField ? "selected field" : "county median"} growth stage · click to select a night</text>`;
+  svg.innerHTML = s;
+  svg.onclick = ev => {
+    const r = svg.getBoundingClientRect(), d = Math.round((ev.clientX - r.left - L) / (W - L - R) * NDAYS);
+    const iso = new Date(+S0 + d * 864e5).toISOString().slice(0, 10);
+    if (D.nights[iso]) selectNight(iso);
+  };
+}
+
+// -------------------------------------------------------------------- map --
+const map = L.map("map", { zoomSnap: 0.25 });
+const hb = D.meta.hillshade_bounds;
+L.imageOverlay("hillshade.png", [[hb[1], hb[0]], [hb[3], hb[2]]], { opacity: 0.9 }).addTo(map);
+const cellLayer = L.geoJSON(D.cells, { style: () => ({}) }).addTo(map);
+const fieldLayer = L.geoJSON(D.fields, {
+  style: () => ({}),
+  onEachFeature: (f, l) => l.on("click", () => selectField(f.properties.field_id)),
+}).addTo(map);
+map.fitBounds(fieldLayer.getBounds().pad(0.15));
+const legend = L.control({ position: "bottomleft" });
+legend.onAdd = () => { const d = L.DomUtil.create("div", "legend"); d.id = "legend"; return d; };
+legend.addTo(map);
+
+function fieldStyle(fid) {
+  const r = (D.fn[selNight] || {})[fid];
+  const base = { weight: fid === selField ? 3 : 1, color: fid === selField ? "#000" : "#333", fillOpacity: 0.85 };
+  if (!r) return { ...base, fillColor: "#bbb", dashArray: "3 3", fillOpacity: 0.5 };
+  if (r[COLS.growth_stage] !== "growth") return { ...base, fillColor: "#bbb", dashArray: "3 3", fillOpacity: 0.5 };
+  const v = r[COLS[metric]];
+  if (v == null) return { ...base, fillColor: "#fff", fillOpacity: 0.7 };
+  return { ...base, fillColor: metric === "mean_z" ? div(v) : seq(v) };
+}
+function drawMap() {
+  const nd = D.nights[selNight], tr = new Set(nd.trig), nr = new Set(nd.near);
+  cellLayer.eachLayer(l => {
+    const id = l.feature.properties.cell_id;
+    l.setStyle(tr.has(id) ? { color: "var(--trig)", weight: 2, fillColor: "#c0392b", fillOpacity: 0.12 }
+      : nr.has(id) ? { color: "var(--near)", weight: 1.5, dashArray: "4 3", fillColor: "#e08e0b", fillOpacity: 0.08 }
+      : { color: "#555", weight: 0.5, fillOpacity: 0, dashArray: null });
+    const c = nd.cell[id];
+    if (c) l.bindTooltip(`cell ${id}<br>Tmin ${c[0]} °C · dose ${c[1]} °C·h<br>wind ${c[2]} m/s · gust ${c[3]} m/s<br>cloud ${c[4]} % · Td sunset ${c[5]} °C`, { sticky: true });
+  });
+  cellLayer.bringToBack();
+  fieldLayer.eachLayer(l => {
+    const fid = l.feature.properties.field_id, r = (D.fn[selNight] || {})[fid];
+    l.setStyle(fieldStyle(fid));
+    l.bindTooltip(r ? `field ${fid} · ${r[COLS.growth_stage]}<br>share damaged ${r[COLS.share_damaged] ?? "–"} · mean z ${r[COLS.mean_z] ?? "–"}<br>valid ${Math.round((r[COLS.valid_share] || 0) * 100)} % · cell ${r[COLS.cell_id]}${r[COLS.trigger] ? " (trigger)" : r[COLS.near_trigger] ? " (near-trigger)" : ""}`
+      : `field ${fid}: not evaluated this night`, { sticky: true });
+  });
+  const ramp = metric === "mean_z" ? [-3, -1.5, 0, 1.5, 3].map(v => `<span class="sw" style="background:${div(v)}"></span>${v}`).join(" ")
+    : [0, .25, .5, .75, 1].map(v => `<span class="sw" style="background:${seq(v)}"></span>${v}`).join(" ");
+  document.getElementById("legend").innerHTML =
+    `<b>${metric.replace("_", " ")}</b><br>${ramp}<br><span class="sw" style="background:#fff"></span>in growth, no valid pixels ` +
+    `<span class="sw" style="background:#bbb"></span>outside growth phase<br>` +
+    `<span class="sw" style="border:2px solid #c0392b"></span>trigger cell <span class="sw" style="border:2px dashed #e08e0b"></span>near-trigger cell <span class="sw" style="border:1px solid #555"></span>other cell`;
+}
+
+// ------------------------------------------------------------- field view --
+const LAYERS = [["rgb", "RGB"], ["evi2", "EVI2 before / after"], ["pred", "predicted EVI2"], ["z", "z-score"], ["valid", "valid mask"], ["relelev", "relative elevation"]];
+const off = (a, n) => { const d = dayOf(a) - dayOf(n); return (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d) + " d"; };
+function drawField() {
+  const el = document.getElementById("field");
+  if (!selField) { el.innerHTML = `<p class="note">Click a field on the map.</p>`; return; }
+  const det = D.detail[selField], r = (D.fn[selNight] || {})[selField], c = k => r ? r[COLS[k]] : null;
+  let h = `<b>Field ${selField}</b> · emergence ${det.emergence || "–"} · peak ${det.peak || "–"} · night <b>${selNight}</b>`;
+  h += `<table class="meta">`;
+  if (r) {
+    h += `<tr><td>stage</td><td>${c("growth_stage")}</td><td>cell</td><td>${c("cell_id")} ${c("trigger") ? "<b style='color:var(--trig)'>trigger</b>" : c("near_trigger") ? "<b style='color:var(--near)'>near-trigger</b>" : "not flagged"}</td></tr>`;
+    h += `<tr><td>dose</td><td>${c("dose")} °C·h (Tmin ${c("tmin_c")} °C)</td><td>valid</td><td>${c("n_valid")} / ${c("n_px")} px</td></tr>`;
+    h += `<tr><td>mean z</td><td>${c("mean_z") ?? "–"}</td><td>share damaged</td><td>${c("share_damaged") ?? "–"}</td></tr>`;
+    h += `<tr><td>before</td><td>${c("pre_date") || "–"} (−${c("gap_days_before") ?? "?"} d)</td><td>after</td><td>${c("post_date") || "–"} (+${c("gap_days_after") ?? "?"} d)${c("next_date") ? ` · next ${c("next_date")} (+${c("next_days_after")} d)` : ""}</td></tr>`;
+  } else h += `<tr><td colspan="4">Not evaluated on this night (outside growth phase and not a flagged night).</td></tr>`;
+  h += `</table>`;
+  if (r && c("rendered")) {
+    h += `<div class="ctrl">` + LAYERS.map(([k, lab]) => `<button data-l="${k}" class="${k === layer ? "on" : ""}">${lab}</button>`).join("") + `</div><div class="imgs">`;
+    const tag = selNight.replaceAll("-", ""), img = (f, cap) => `<figure><img src="img/${selField}/${f}"><figcaption>${cap}</figcaption></figure>`;
+    const dts = [["before", c("pre_date")], ["after", c("post_date")], ["next", c("next_date")]].filter(x => x[1]);
+    if (layer === "rgb" || layer === "evi2") for (const [k, d] of dts) h += img(`${layer}_${d.replaceAll("-", "")}.png`, `${k}: ${d} (${off(d, selNight)})`);
+    else if (layer === "relelev") h += img("relelev.png", `pixel − field median elevation, ±${det.rel_lim} m (blue low, red high)`);
+    else h += img(`${tag}_${layer}.png`, { pred: `GPR prediction for ${c("post_date")} (${off(c("post_date"), selNight)}), scale 0–0.9`, z: `z at first clear obs after the night (red < 0 < blue, ±4)`, valid: "valid mask" }[layer]);
+    h += `</div>`;
+    if (layer === "evi2" || layer === "pred") h += `<p class="note">EVI2 colour scale: viridis 0 → 0.9. Per-pixel before/after dates can differ from the field's typical dates shown here.</p>`;
+    if (layer === "valid") h += `<p class="note">` + Object.entries(D.meta.reason_codes).filter(([k]) => k !== "1").map(([k, v]) => `<span class="sw" style="background:rgb(${D.meta.reason_colors[k]})"></span>${v}`).join(" &nbsp;") + `</p>`;
+  } else if (r) h += `<p class="note">Pixel images are rendered only for trigger / near-trigger nights inside the growth phase.</p>`;
+  h += `<div id="ts"><svg id="tsvg"></svg></div>`;
+  el.innerHTML = h;
+  el.querySelectorAll("button[data-l]").forEach(b => b.onclick = () => { layer = b.dataset.l; drawField(); });
+  drawSeries(det, r);
+}
+function drawSeries(det, r) {
+  const svg = document.getElementById("tsvg"), W = svg.clientWidth, H = 220, L = 36, R = 8, T = 8, B = 24;
+  const x = d => L + (W - L - R) * d / NDAYS, y = v => T + (H - T - B) * (1 - v / 0.9);
+  let s = "";
+  for (const v of [0, .2, .4, .6, .8]) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#eee"/><text x="2" y="${y(v) + 4}" font-size="10" fill="#777">${v.toFixed(1)}</text>`;
+  s += `<line x1="${L}" x2="${W - R}" y1="${y(D.meta.emergence_evi2)}" y2="${y(D.meta.emergence_evi2)}" stroke="#9a9" stroke-dasharray="3 3"/>`;
+  const cv = det.curves[selNight];
+  if (cv) {
+    const end = r ? dayOf(r[COLS.post_date]) + 2 : NDAYS, start = dayOf(det.series.dates[0] || selNight);
+    const pts = cv.day.map((d, i) => [d, cv.mean[i], cv.std[i]]).filter(p => p[0] >= start && p[0] <= end);
+    const up = pts.map(p => `${x(p[0])},${y(Math.min(.9, p[1] + 2 * p[2]))}`), lo = pts.map(p => `${x(p[0])},${y(Math.max(0, p[1] - 2 * p[2]))}`).reverse();
+    s += `<polygon points="${up.concat(lo).join(" ")}" fill="#2c6fbb" fill-opacity="0.15"/>`;
+    s += `<polyline points="${pts.map(p => `${x(p[0])},${y(p[1])}`).join(" ")}" fill="none" stroke="#2c6fbb" stroke-dasharray="4 2"/>`;
+  }
+  const ser = det.series;
+  s += `<polyline points="${ser.dates.map((d, i) => `${x(dayOf(d))},${y(ser.smooth[i])}`).join(" ")}" fill="none" stroke="#2a7" stroke-width="1.5"/>`;
+  ser.dates.forEach((d, i) => s += `<circle cx="${x(dayOf(d))}" cy="${y(ser.median[i])}" r="3" fill="#2a7"><title>${d}: median EVI2 ${ser.median[i]}</title></circle>`);
+  s += `<line x1="${x(dayOf(selNight))}" x2="${x(dayOf(selNight))}" y1="${T}" y2="${H - B}" stroke="#000" stroke-width="1.5"/>`;
+  if (r && r[COLS.post_date]) s += `<line x1="${x(dayOf(r[COLS.post_date]))}" x2="${x(dayOf(r[COLS.post_date]))}" y1="${T}" y2="${H - B}" stroke="#2c6fbb" stroke-dasharray="2 2"/>`;
+  for (let m = 0; m < 6; m++) { const dt = new Date(Date.UTC(S0.getUTCFullYear(), S0.getUTCMonth() + m, 1)), d = Math.round((dt - S0) / 864e5); s += `<text x="${x(d)}" y="${H - 6}" font-size="10" fill="#666">${dt.toLocaleString("en", { month: "short", timeZone: "UTC" })}</text>`; }
+  svg.innerHTML = s;
+  svg.insertAdjacentHTML("afterend", `<p class="note">Green: field-median EVI2 of clear pixels (dots) and its smoothed series; dashed grey: emergence threshold. Blue band: median over valid pixels of the GPR mean ± 2σ, fitted on observations before the night (black line) and evaluated at the first clear acquisition after it (blue dashed line).${cv ? "" : " No prediction band for this night."}</p>`);
+}
+
+// ------------------------------------------------------------------ state --
+function nightInfo() {
+  const nd = D.nights[selNight], fr = D.fn[selNight] || {}, rows = Object.values(fr), g = rows.filter(r => r[COLS.growth_stage] === "growth");
+  const val = g.filter(r => r[COLS.n_valid] > 0);
+  document.getElementById("nightinfo").innerHTML =
+    `Night <b>${selNight}</b> · trigger in <b>${nd.ptrig}</b> potato cells (max dose ${nd.maxdose} °C·h) · near-trigger in <b>${nd.pnear}</b> · coldest potato-cell Tmin ${nd.tmin} °C · ` +
+    `fields in growth phase: ${g.length}, with valid pixels: ${val.length}` + (val.length ? `, of which in trigger cells: ${val.filter(r => r[COLS.trigger]).length}` : "");
+}
+function selectNight(n) { selNight = n; saveHash(); nightInfo(); drawTimeline(); drawMap(); drawField(); }
+function selectField(f) { selField = f; saveHash(); drawTimeline(); drawMap(); drawField(); }
+document.querySelectorAll("button[data-m]").forEach(b => b.onclick = () => {
+  metric = b.dataset.m; document.querySelectorAll("button[data-m]").forEach(x => x.classList.toggle("on", x === b)); drawMap();
+});
+window.addEventListener("resize", () => { drawTimeline(); drawField(); });
+selectNight(selNight);
+</script>
+</body>
+</html>

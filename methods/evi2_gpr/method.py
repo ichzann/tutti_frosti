@@ -1,8 +1,8 @@
 """Baseline method: per-pixel EVI2 GPR expected trajectory -> z-score damage.
 
 Plugin interface (see README):
-    m = Method(cfg, store)            # store: methods.base.FieldStore
-    m.damage(field_id, night) -> {"score", "valid", "meta", "layers"}
+    m = Method(cfg, store)            # store: data.store.FieldStore
+    m.damage(field_id, night) -> {"score", "valid", "meta", "curve", "layers"}
 """
 from __future__ import annotations
 
@@ -64,6 +64,31 @@ class Method:
     def __init__(self, cfg, store):
         self.cfg, self.store = cfg, store
         self._gp = {}
+        # fit cache: the fit uses all clear obs before the night and predicts at the first
+        # clear obs after it, so it depends only on (pixel, last-before idx, first-after idx);
+        # nights between the same two acquisitions share it.  Times are absolute days, so a
+        # stationary kernel gives the same result as times relative to the night.
+        self._fit = {}
+        s0 = dt.date.fromisoformat(cfg["study"]["season_start"])
+        e0 = dt.date.fromisoformat(cfg["study"]["season_end"])
+        self.day0 = s0
+        self.curve_days = np.arange(0, (e0 - s0).days + 31, 2, dtype=float)
+
+    def clear_cache(self):
+        self._fit.clear()
+
+    def _fit_pixel(self, field_id, y, x, tb, ta, ad, yb):
+        key = (field_id, y, x, int(tb[-1]), int(ta[0]))
+        if key not in self._fit:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", ConvergenceWarning)
+                gp = GaussianProcessRegressor(_kernel(self.cfg), normalize_y=True,
+                                              n_restarts_optimizer=0)
+                gp.fit(ad[tb][:, None], yb)
+                m, s = gp.predict(np.array([[ad[ta[0]]]]), return_std=True)
+                cm, cs = gp.predict(self.curve_days[:, None], return_std=True)
+            self._fit[key] = (m[0], s[0], cm.astype("float32"), cs.astype("float32"))
+        return self._fit[key]
 
     def growth(self, field_id):
         if field_id not in self._gp:
@@ -91,6 +116,8 @@ class Method:
 
         clear = np.isfinite(ev) & mask[None]
         t_days = np.array([(d - night).days for d in dates], dtype=float)  # night = 0
+        abs_days = np.array([(d - self.day0).days for d in dates], dtype=float)
+        curves_m, curves_s = [], []
         # observations strictly before the night; the night's evening is day 0 so
         # acquisitions on the night date (late morning) count as before
         before = t_days <= 0
@@ -115,22 +142,16 @@ class Method:
                 reason[y, x] = 4; continue
             if not len(ta) or t_days[ta[0]] > g["max_gap_after_days"]:
                 reason[y, x] = 5; continue
-            Xb = t_days[tb][:, None]
-            yb = ev[tb, y, x]
             try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", ConvergenceWarning)
-                    gp = GaussianProcessRegressor(_kernel(cfg), normalize_y=True,
-                                                  n_restarts_optimizer=0)
-                    gp.fit(Xb, yb)
-                    m, s = gp.predict(np.array([[t_days[ta[0]]]]), return_std=True)
+                m, s, cm, cs = self._fit_pixel(field_id, y, x, tb, ta, abs_days, ev[tb, y, x])
             except Exception:
                 reason[y, x] = 6; continue
             o = ev[ta[0], y, x]
-            zz = (o - m[0]) / s[0] if s[0] > 0 else np.nan
+            zz = (o - m) / s if s > 0 else np.nan
             if not np.isfinite(zz):
                 reason[y, x] = 6; continue
-            z[y, x], pred[y, x], pstd[y, x], obs[y, x] = zz, m[0], s[0], o
+            z[y, x], pred[y, x], pstd[y, x], obs[y, x] = zz, m, s, o
+            curves_m.append(cm); curves_s.append(cs)
             score[y, x] = max(0.0, -zz)
             pre_idx[y, x], post_idx[y, x] = tb[-1], ta[0]
 
@@ -157,6 +178,11 @@ class Method:
                     gap_days_after=days(qi), next_days_after=days(nxt),
                     growth_stage=stage, emergence=emerg and emerg.isoformat(),
                     peak=peak and peak.isoformat(), **nmeta)
-        return {"score": score, "valid": valid, "meta": meta,
+        # field-level prediction band: median over valid pixels of the per-pixel GPR mean / std
+        if curves_m:
+            curve = dict(days=self.curve_days, mean=np.median(curves_m, 0), std=np.median(curves_s, 0))
+        else:
+            curve = None
+        return {"score": score, "valid": valid, "meta": meta, "curve": curve,
                 "layers": {"z": z, "predicted": pred, "pred_std": pstd, "observed": obs,
                            "reason": reason, "pre_idx": pi, "post_idx": qi, "next_idx": nxt}}

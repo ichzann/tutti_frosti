@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from .common import cache_dir
+from .fields import field_mask
 
 
 class FieldStore:
@@ -16,7 +17,10 @@ class FieldStore:
         self.cfg = cfg
         self.fips = fips or cfg["study"]["county_fips"]
         c = cache_dir(cfg)
-        self.fields = gpd.read_file(c / f"fields_used_{self.fips}.gpkg")
+        f = gpd.read_file(c / f"fields_used_{self.fips}.gpkg")
+        # final field pixels = buffered polygon AND CDL potato AND confidence rule
+        self._mask = {r.field_id: field_mask(cfg, r) for r in f.itertuples()}
+        self.fields = f[[self._mask[i].any() for i in f.field_id]].reset_index(drop=True)
         self.nights = pd.read_parquet(c / "nights.parquet")
         cells = gpd.read_file(c / "rtma_cells.gpkg").to_crs(self.fields.crs)
         # each field is assigned the RTMA cell containing its centroid
@@ -34,6 +38,7 @@ class FieldStore:
         z = np.load(cache_dir(self.cfg, "s2") / f"{field_id}.npz")
         d = {k: z[k] for k in z.files}
         d["dates"] = [dt.date.fromisoformat(s) for s in d["dates"]]
+        d["mask"] = self._mask[field_id]
         return d
 
     def night_meta(self, field_id, night):

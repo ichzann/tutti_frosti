@@ -48,6 +48,13 @@ def field_transform(row, res=10):
     return from_origin(row.x0, row.y0, res, res)
 
 
+def polygon_mask(cfg, row) -> np.ndarray:
+    """Boolean (ny, nx): pixel centre inside the buffered CSB polygon."""
+    tr = field_transform(row, cfg["data"]["s2_resolution_m"])
+    return rasterize([(row.geometry, 1)], out_shape=(int(row.ny), int(row.nx)), transform=tr,
+                     fill=0, dtype="uint8").astype(bool)
+
+
 def field_mask(cfg, row) -> np.ndarray:
     """Boolean (ny, nx): inside buffered polygon AND CDL potato AND confidence >= threshold."""
     fp = cache_dir(cfg, "masks") / f"{row.field_id}.npy"
@@ -56,8 +63,7 @@ def field_mask(cfg, row) -> np.ndarray:
     d = cfg["data"]
     tr = field_transform(row, d["s2_resolution_m"])
     shape = (int(row.ny), int(row.nx))
-    poly = rasterize([(row.geometry, 1)], out_shape=shape, transform=tr, fill=0,
-                     dtype="uint8").astype(bool)
+    poly = polygon_mask(cfg, row)
     cls_fp, conf_fp = cdl.county_cdl(cfg, row.GEOID)
     out = {}
     for k, p in (("cls", cls_fp), ("conf", conf_fp)):
