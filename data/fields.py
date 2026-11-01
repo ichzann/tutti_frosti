@@ -1,4 +1,4 @@
-"""Field definition: CSB potato polygon, 10 m inward buffer, >= 4 ha, CDL potato & confidence mask.
+"""Field definition: CSB potato polygon, 10 m inward buffer, >= 4 ha, CDL potato & confidence rule.
 
 Each field gets its own 10 m pixel grid (snapped to the Sentinel-2 UTM 12N grid).
 """
@@ -56,11 +56,19 @@ def polygon_mask(cfg, row) -> np.ndarray:
 
 
 def field_mask(cfg, row) -> np.ndarray:
-    """Boolean (ny, nx): inside buffered polygon AND CDL potato AND confidence >= threshold."""
-    fp = cache_dir(cfg, "masks") / f"{row.field_id}.npy"
+    """Boolean (ny, nx): inside buffered polygon AND CDL potato AND the confidence rule.
+
+    cdl_confidence_rule "pixel": each pixel needs confidence >= cdl_min_confidence (fragments
+    fields: the 10 m 2024 confidence is speckled). "field": the field is kept when the median
+    confidence of its CDL potato pixels is >= cdl_min_confidence, and then every CDL potato pixel
+    in the polygon is used; otherwise the field is dropped (all-False mask).
+    """
+    d = cfg["data"]
+    rule = d.get("cdl_confidence_rule", "pixel")
+    sub = "masks" if rule == "pixel" else f"masks_{rule}{d['cdl_min_confidence']}"
+    fp = cache_dir(cfg, sub) / f"{row.field_id}.npy"
     if fp.exists():
         return np.load(fp)
-    d = cfg["data"]
     tr = field_transform(row, d["s2_resolution_m"])
     shape = (int(row.ny), int(row.nx))
     poly = polygon_mask(cfg, row)
@@ -72,6 +80,13 @@ def field_mask(cfg, row) -> np.ndarray:
             reproject(rasterio.band(src, 1), dst, dst_transform=tr, dst_crs=d["work_crs"],
                       resampling=Resampling.nearest)
         out[k] = dst
-    m = poly & (out["cls"] == d["cdl_potato_class"]) & (out["conf"] >= d["cdl_min_confidence"])
+    pot = poly & (out["cls"] == d["cdl_potato_class"])
+    if rule == "pixel":
+        m = pot & (out["conf"] >= d["cdl_min_confidence"])
+    elif rule == "field":
+        keep = pot.any() and np.median(out["conf"][pot]) >= d["cdl_min_confidence"]
+        m = pot if keep else np.zeros_like(pot)
+    else:
+        raise ValueError(f"cdl_confidence_rule: {rule!r}")
     np.save(fp, m)
     return m

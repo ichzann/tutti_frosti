@@ -45,4 +45,4 @@ class FieldStore:
         cell = self.field_cell[field_id]
         r = self._n.loc[(cell, dt.date.fromisoformat(str(night)).isoformat())]
         return dict(cell_id=cell, dose=float(r.dose_degree_hours), tmin_c=float(r.tmin_c),
-                    trigger=bool(r.trigger), near_trigger=bool(r.near_trigger))
+                    trigger=bool(r.trigger), near_trigger=bool(r.near_trigger), regime=r.regime)

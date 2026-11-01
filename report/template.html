@@ -29,6 +29,7 @@
   .imgs figcaption { font-size:12px; color:var(--mute); }
   .legend { background:#fff; padding:6px 8px; border:1px solid var(--line); font-size:12px; line-height:1.5; }
   .sw { display:inline-block; width:12px; height:12px; vertical-align:middle; margin-right:4px; border:1px solid #999; }
+  img.pix { image-rendering: pixelated; }
   .meta td { padding:0 10px 0 0; vertical-align:top; } .meta td:first-child { color:var(--mute); }
   #ts svg { width:100%; height:220px; display:block; }
   .note { color:var(--mute); font-size:12px; }
@@ -41,10 +42,13 @@
 <div id="nightinfo"></div>
 <main>
   <div>
-    <div class="ctrl">Field colour:
-      <button data-m="share_damaged" class="on">share damaged (z ≤ −2)</button>
+    <div class="ctrl">Map:
+      <button data-m="pixels" class="on">pixel z (inside fields)</button>
+      <button data-m="share_damaged">field share damaged (z ≤ −2)</button>
       <button data-m="mean_z">mean z</button>
       <button data-m="valid_share">valid pixel share</button>
+      <label id="opwrap">opacity <input id="op" type="range" min="0.2" max="1" step="0.05" value="0.9"></label>
+      <span class="note">← / → : previous / next flagged night</span>
     </div>
     <div id="map"></div>
   </div>
@@ -61,7 +65,7 @@ const NDAYS = dayOf(nightDates[nightDates.length - 1]) + 16;
 const inPhase = (n, k) => Object.values(D.fn[n] || {}).filter(r => r[COLS.growth_stage] === "growth" && r[COLS.n_valid] > 0 && (k ? r[COLS[k]] : true)).length;
 const best = k => D.meta.flagged_nights.filter(n => inPhase(n, k) > 0).sort((a, b) => inPhase(b, k) - inPhase(a, k))[0];
 let selNight = best("trigger") || best("near_trigger") || best(null) || D.meta.flagged_nights[0] || nightDates[0];
-let selField = null, metric = "share_damaged", layer = "z";
+let selField = null, metric = "pixels", layer = "z", pixOpacity = 0.9;
 const hp = new URLSearchParams(location.hash.slice(1));
 if (D.nights[hp.get("night")]) selNight = hp.get("night");
 if (D.detail[hp.get("field")]) selField = hp.get("field");
@@ -134,13 +138,26 @@ function drawTimeline() {
 }
 
 // -------------------------------------------------------------------- map --
-const map = L.map("map", { zoomSnap: 0.25 });
+const map = L.map("map", { zoomSnap: 0.25, preferCanvas: true });   // canvas: ~1700 vector shapes stay responsive
 const hb = D.meta.hillshade_bounds;
 L.imageOverlay("hillshade.png", [[hb[1], hb[0]], [hb[3], hb[2]]], { opacity: 0.9 }).addTo(map);
-const cellLayer = L.geoJSON(D.cells, { style: () => ({}) }).addTo(map);
+// tooltips are bound once with content functions (re-binding on every night change
+// stacks event listeners in Leaflet and freezes the page after a few clicks)
+function cellTip(l) {
+  const id = l.feature.properties.cell_id, c = D.nights[selNight].cell[id];   // only potato cells carry weather
+  return c ? `cell ${id} · ${c[5]} night (trigger ≤ ${c[6]} °C)<br>Tmin ${c[0]} °C · dose ${c[1]} °C·h (est. leaf temp.)<br>before Tmin: wind ${c[2]} m/s · cloud ${c[3]} %<br>Td sunset ${c[4]} °C` : `cell ${id}`;
+}
+function fieldTip(l) {
+  const fid = l.feature.properties.field_id, r = (D.fn[selNight] || {})[fid];
+  return r ? `field ${fid} · ${r[COLS.growth_stage]}<br>share damaged ${r[COLS.share_damaged] ?? "–"} · mean z ${r[COLS.mean_z] ?? "–"}<br>valid ${Math.round((r[COLS.valid_share] || 0) * 100)} % · cell ${r[COLS.cell_id]}${r[COLS.trigger] ? " (trigger)" : r[COLS.near_trigger] ? " (near-trigger)" : ""}`
+    : `field ${fid}: not evaluated this night`;
+}
+const cellLayer = L.geoJSON(D.cells, { style: () => ({}), onEachFeature: (f, l) => l.bindTooltip(cellTip, { sticky: true }) }).addTo(map);
+map.createPane("pixels").style.zIndex = 450;   // above field polygons (overlayPane 400), below tooltips
+const pixelLayer = L.layerGroup().addTo(map);
 const fieldLayer = L.geoJSON(D.fields, {
   style: () => ({}),
-  onEachFeature: (f, l) => l.on("click", () => selectField(f.properties.field_id)),
+  onEachFeature: (f, l) => { l.on("click", () => selectField(f.properties.field_id)); l.bindTooltip(fieldTip, { sticky: true }); },
 }).addTo(map);
 map.fitBounds(fieldLayer.getBounds().pad(0.15));
 const legend = L.control({ position: "bottomleft" });
@@ -152,6 +169,7 @@ function fieldStyle(fid) {
   const base = { weight: fid === selField ? 3 : 1, color: fid === selField ? "#000" : "#333", fillOpacity: 0.85 };
   if (!r) return { ...base, fillColor: "#bbb", dashArray: "3 3", fillOpacity: 0.5 };
   if (r[COLS.growth_stage] !== "growth") return { ...base, fillColor: "#bbb", dashArray: "3 3", fillOpacity: 0.5 };
+  if (metric === "pixels") return r[COLS.rendered] ? { ...base, fillOpacity: 0 } : { ...base, fillColor: "#fff", fillOpacity: 0.7 };
   const v = r[COLS[metric]];
   if (v == null) return { ...base, fillColor: "#fff", fillOpacity: 0.7 };
   return { ...base, fillColor: metric === "mean_z" ? div(v) : seq(v) };
@@ -160,19 +178,24 @@ function drawMap() {
   const nd = D.nights[selNight], tr = new Set(nd.trig), nr = new Set(nd.near);
   cellLayer.eachLayer(l => {
     const id = l.feature.properties.cell_id;
-    l.setStyle(tr.has(id) ? { color: "var(--trig)", weight: 2, fillColor: "#c0392b", fillOpacity: 0.12 }
-      : nr.has(id) ? { color: "var(--near)", weight: 1.5, dashArray: "4 3", fillColor: "#e08e0b", fillOpacity: 0.08 }
+    l.setStyle(tr.has(id) ? { color: "#c0392b", weight: 2, fillColor: "#c0392b", fillOpacity: 0.12 }
+      : nr.has(id) ? { color: "#e08e0b", weight: 1.5, dashArray: "4 3", fillColor: "#e08e0b", fillOpacity: 0.08 }
       : { color: "#555", weight: 0.5, fillOpacity: 0, dashArray: null });
-    const c = nd.cell[id];
-    if (c) l.bindTooltip(`cell ${id}<br>Tmin ${c[0]} °C · dose ${c[1]} °C·h<br>wind ${c[2]} m/s · gust ${c[3]} m/s<br>cloud ${c[4]} % · Td sunset ${c[5]} °C`, { sticky: true });
   });
   cellLayer.bringToBack();
-  fieldLayer.eachLayer(l => {
-    const fid = l.feature.properties.field_id, r = (D.fn[selNight] || {})[fid];
-    l.setStyle(fieldStyle(fid));
-    l.bindTooltip(r ? `field ${fid} · ${r[COLS.growth_stage]}<br>share damaged ${r[COLS.share_damaged] ?? "–"} · mean z ${r[COLS.mean_z] ?? "–"}<br>valid ${Math.round((r[COLS.valid_share] || 0) * 100)} % · cell ${r[COLS.cell_id]}${r[COLS.trigger] ? " (trigger)" : r[COLS.near_trigger] ? " (near-trigger)" : ""}`
-      : `field ${fid}: not evaluated this night`, { sticky: true });
-  });
+  fieldLayer.eachLayer(l => l.setStyle(fieldStyle(l.feature.properties.field_id)));
+  drawPixels();
+  document.getElementById("opwrap").style.display = metric === "pixels" ? "" : "none";
+  if (metric === "pixels") {
+    const zc = z => { const st = D.zmap.stops, t = Math.min(1, z / D.zmap.z_min) * (st.length - 1), k = Math.min(st.length - 2, Math.floor(t)); return hex(lerp(st[k], st[k + 1], t - k)); };
+    document.getElementById("legend").innerHTML =
+      `<b>pixel z</b> (observed − predicted EVI2, in σ)<br>` + [0, -1, -2, -3, -4].map(v => `<span class="sw" style="background:${zc(v)}"></span>${v === -4 ? "≤ −4" : v}`).join(" ") +
+      `<br><span class="sw" style="background:rgb(215,225,215)"></span>z ≥ 0 <span class="sw" style="background:rgba(120,120,120,.45)"></span>no valid z<br>` +
+      `<span class="sw" style="background:#fff"></span>in growth, no pixel images <span class="sw" style="background:#bbb"></span>outside growth phase<br>` +
+      `<span class="sw" style="border:2px solid #c0392b"></span>trigger cell <span class="sw" style="border:2px dashed #e08e0b"></span>near-trigger cell <span class="sw" style="border:1px solid #555"></span>other cell` +
+      `<br><span class="note">damaged threshold z ≤ ${D.meta.z_damaged ?? -2}</span>`;
+    return;
+  }
   const ramp = metric === "mean_z" ? [-3, -1.5, 0, 1.5, 3].map(v => `<span class="sw" style="background:${div(v)}"></span>${v}`).join(" ")
     : [0, .25, .5, .75, 1].map(v => `<span class="sw" style="background:${seq(v)}"></span>${v}`).join(" ");
   document.getElementById("legend").innerHTML =
@@ -181,8 +204,20 @@ function drawMap() {
     `<span class="sw" style="border:2px solid #c0392b"></span>trigger cell <span class="sw" style="border:2px dashed #e08e0b"></span>near-trigger cell <span class="sw" style="border:1px solid #555"></span>other cell`;
 }
 
+function drawPixels() {
+  pixelLayer.clearLayers();
+  if (metric !== "pixels") return;
+  const fr = D.fn[selNight] || {}, tag = selNight.replaceAll("-", "");
+  for (const fid in fr) {
+    const r = fr[fid], b = D.pixel_bounds[fid];
+    if (!b || !r[COLS.rendered]) continue;
+    L.imageOverlay(`img/${fid}/${tag}_zmap.png`, [[b[0], b[1]], [b[2], b[3]]],
+      { pane: "pixels", opacity: pixOpacity, className: "pix", interactive: false }).addTo(pixelLayer);
+  }
+}
+
 // ------------------------------------------------------------- field view --
-const LAYERS = [["rgb", "RGB"], ["evi2", "EVI2 before / after"], ["pred", "predicted EVI2"], ["z", "z-score"], ["valid", "valid mask"], ["relelev", "relative elevation"]];
+const LAYERS = [["rgb", "RGB"], ["evi2", "EVI2 before / after"], ["ndmi", "NDMI (moisture)"], ["pred", "predicted EVI2"], ["z", "z-score"], ["valid", "valid mask"], ["relelev", "relative elevation"]];
 const off = (a, n) => { const d = dayOf(a) - dayOf(n); return (d > 0 ? "+" : d < 0 ? "−" : "±") + Math.abs(d) + " d"; };
 function drawField() {
   const el = document.getElementById("field");
@@ -191,7 +226,7 @@ function drawField() {
   let h = `<b>Field ${selField}</b> · emergence ${det.emergence || "–"} · peak ${det.peak || "–"} · night <b>${selNight}</b>`;
   h += `<table class="meta">`;
   if (r) {
-    h += `<tr><td>stage</td><td>${c("growth_stage")}</td><td>cell</td><td>${c("cell_id")} ${c("trigger") ? "<b style='color:var(--trig)'>trigger</b>" : c("near_trigger") ? "<b style='color:var(--near)'>near-trigger</b>" : "not flagged"}</td></tr>`;
+    h += `<tr><td>stage</td><td>${c("growth_stage")}</td><td>cell</td><td>${c("cell_id")} (${c("regime")}) ${c("trigger") ? "<b style='color:var(--trig)'>trigger</b>" : c("near_trigger") ? "<b style='color:var(--near)'>near-trigger</b>" : "not flagged"}</td></tr>`;
     h += `<tr><td>dose</td><td>${c("dose")} °C·h (Tmin ${c("tmin_c")} °C)</td><td>valid</td><td>${c("n_valid")} / ${c("n_px")} px</td></tr>`;
     h += `<tr><td>mean z</td><td>${c("mean_z") ?? "–"}</td><td>share damaged</td><td>${c("share_damaged") ?? "–"}</td></tr>`;
     h += `<tr><td>before</td><td>${c("pre_date") || "–"} (−${c("gap_days_before") ?? "?"} d)</td><td>after</td><td>${c("post_date") || "–"} (+${c("gap_days_after") ?? "?"} d)${c("next_date") ? ` · next ${c("next_date")} (+${c("next_days_after")} d)` : ""}</td></tr>`;
@@ -201,11 +236,12 @@ function drawField() {
     h += `<div class="ctrl">` + LAYERS.map(([k, lab]) => `<button data-l="${k}" class="${k === layer ? "on" : ""}">${lab}</button>`).join("") + `</div><div class="imgs">`;
     const tag = selNight.replaceAll("-", ""), img = (f, cap) => `<figure><img src="img/${selField}/${f}"><figcaption>${cap}</figcaption></figure>`;
     const dts = [["before", c("pre_date")], ["after", c("post_date")], ["next", c("next_date")]].filter(x => x[1]);
-    if (layer === "rgb" || layer === "evi2") for (const [k, d] of dts) h += img(`${layer}_${d.replaceAll("-", "")}.png`, `${k}: ${d} (${off(d, selNight)})`);
+    if (layer === "rgb" || layer === "evi2" || layer === "ndmi") for (const [k, d] of dts) h += img(`${layer}_${d.replaceAll("-", "")}.png`, `${k}: ${d} (${off(d, selNight)})`);
     else if (layer === "relelev") h += img("relelev.png", `pixel − field median elevation, ±${det.rel_lim} m (blue low, red high)`);
     else h += img(`${tag}_${layer}.png`, { pred: `GPR prediction for ${c("post_date")} (${off(c("post_date"), selNight)}), scale 0–0.9`, z: `z at first clear obs after the night (red < 0 < blue, ±4)`, valid: "valid mask" }[layer]);
     h += `</div>`;
     if (layer === "evi2" || layer === "pred") h += `<p class="note">EVI2 colour scale: viridis 0 → 0.9. Per-pixel before/after dates can differ from the field's typical dates shown here.</p>`;
+    if (layer === "ndmi") h += `<p class="note">NDMI = (B8A − B11) / (B8A + B11), 20 m SWIR on the 10 m grid. Colour BrBG ${D.meta.ndmi_range[0]} (brown, dry) → ${D.meta.ndmi_range[1]} (blue-green, moist canopy); black outline = field pixels; blank = not clear. Display only, not used by the method.</p>`;
     if (layer === "valid") h += `<p class="note">` + Object.entries(D.meta.reason_codes).filter(([k]) => k !== "1").map(([k, v]) => `<span class="sw" style="background:rgb(${D.meta.reason_colors[k]})"></span>${v}`).join(" &nbsp;") + `</p>`;
   } else if (r) h += `<p class="note">Pixel images are rendered only for trigger / near-trigger nights inside the growth phase.</p>`;
   h += `<div id="ts"><svg id="tsvg"></svg></div>`;
@@ -249,6 +285,13 @@ function selectNight(n) { selNight = n; saveHash(); nightInfo(); drawTimeline();
 function selectField(f) { selField = f; saveHash(); drawTimeline(); drawMap(); drawField(); }
 document.querySelectorAll("button[data-m]").forEach(b => b.onclick = () => {
   metric = b.dataset.m; document.querySelectorAll("button[data-m]").forEach(x => x.classList.toggle("on", x === b)); drawMap();
+});
+document.getElementById("op").oninput = e => { pixOpacity = +e.target.value; pixelLayer.eachLayer(l => l.setOpacity(pixOpacity)); };
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+  const fl = D.meta.flagged_nights, i = fl.findIndex(n => n >= selNight);
+  const j = e.key === "ArrowRight" ? (fl[i] === selNight ? i + 1 : i) : (i < 0 ? fl.length - 1 : i - 1);
+  if (fl[j]) { e.preventDefault(); selectNight(fl[j]); }
 });
 window.addEventListener("resize", () => { drawTimeline(); drawField(); });
 selectNight(selNight);

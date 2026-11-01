@@ -20,7 +20,7 @@ from matplotlib import colormaps
 from PIL import Image
 
 import methods
-from data import dem
+from data import dem, ndmi
 from data.common import ROOT, cache_dir, load_config
 from data.prepare import prepare
 from data.store import FieldStore
@@ -210,6 +210,8 @@ def main():
                 reason_codes=methods.load(a.method).REASONS, reason_colors=REASON_COLORS)
     (out / "run_meta.json").write_text(json.dumps(meta, indent=1, default=str))
     (out / "config_used.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+    ndmi.render(out)
+
 
     from report.build import build
     print("report:", build(out))

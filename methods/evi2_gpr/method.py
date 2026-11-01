@@ -123,6 +123,8 @@ class Method:
         before = t_days <= 0
         after = t_days > 0
         since_em = np.array([emerg is not None and d >= emerg for d in dates])
+        win = g.get("obs_window_days")
+        in_window = before & (t_days >= -win if win is not None else True)
 
         score = np.full((H, W), np.nan, "float32")
         z = np.full((H, W), np.nan, "float32")
@@ -136,7 +138,8 @@ class Method:
             c = clear[:, y, x]
             tb = np.nonzero(c & before)[0]          # all clear obs before -> GPR fit
             ta = np.nonzero(c & after)[0]
-            if (c & before & since_em).sum() < g["min_clear_obs_since_emergence"]:
+            if ((c & before & since_em).sum() < g["min_clear_obs_since_emergence"]
+                    or (c & in_window).sum() < g.get("min_clear_obs_before", 0)):
                 reason[y, x] = 3; continue
             if -t_days[tb[-1]] > g["max_gap_before_days"]:
                 reason[y, x] = 4; continue

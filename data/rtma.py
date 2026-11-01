@@ -206,10 +206,35 @@ def fetch_all(cfg, need, win, workers: int = 8, log=print):
 
 
 # ------------------------------------------------------------- nights -----
+def thresholds(nc):
+    """Trigger thresholds on RTMA hourly 2 m Tmin per night regime (see config.yaml: night)."""
+    base = nc["leaf_critical_c"] + nc["rtma_margin_c"] + nc["hourly_miss_c"]
+    return {"radiative": base + nc["leaf_offset_radiative_c"], "advective": base}
+
+
+def flag(df, nc) -> pd.DataFrame:
+    """Add regime / trigger / near_trigger / dose to a nights table (cheap; re-run for sweeps).
+
+    Radiative = calm and clear in the hours up to Tmin; there the leaf runs colder than 2 m air,
+    so the trigger is warmer.  Every other night is advective (wind / cloud keep the leaf near
+    air temperature) and is still evaluated, against a colder threshold.
+    """
+    thr = thresholds(nc)
+    rad = ((df.wind_pre_tmin_ms <= nc["wind_max_ms"]) & (df.cloud_pre_tmin_pct <= nc["cloud_max_pct"]))
+    out = df.copy()
+    out["regime"] = np.where(df.tmin_c.isna(), None, np.where(rad, "radiative", "advective"))
+    out["trigger_thr_c"] = np.where(rad, thr["radiative"], thr["advective"])
+    out["trigger"] = (df.tmin_c <= out.trigger_thr_c).to_numpy()
+    lo_t, hi_t = nc["near_trigger_tmin_c"]
+    out["near_trigger"] = (rad & df.tmin_c.between(lo_t, hi_t)).to_numpy()
+    out["dose_degree_hours"] = np.where(rad, df.dh_radiative, df.dh_advective)
+    return out
+
+
 def build_nights(cfg, cell_df, data, win) -> pd.DataFrame:
     """One row per RTMA cell x night with summary stats and flags."""
     nc = cfg["night"]
-    thr = nc["frost_threshold_c"]
+    pre = nc["pre_tmin_hours"]
     j0, _, i0, _ = win
     jj = (cell_df.j - j0).to_numpy()
     ii = (cell_df.i - i0).to_numpy()
@@ -224,6 +249,7 @@ def build_nights(cfg, cell_df, data, win) -> pd.DataFrame:
                 hours.append(t)
                 t += dt.timedelta(hours=1)
             got = [data.get(h) for h in hours]
+            ok_hours = [h for h, g in zip(hours, got) if g is not None]
             ok = [g for g in got if g is not None]
             tmp = np.array([g["TMP"][j, i] for g in ok]) - 273.15
             wind = np.array([g["WIND"][j, i] for g in ok])
@@ -232,32 +258,26 @@ def build_nights(cfg, cell_df, data, win) -> pd.DataFrame:
             hs = data.get(_nearest_hour(ss))
             dpt_ss = float(hs["DPT"][j, i] - 273.15) if hs is not None and "DPT" in hs else np.nan
             if len(ok):
-                tmin = float(tmp.min())
-                calm = (wind.mean() <= nc["wind_mean_max_ms"]) and (gust.max() <= nc["gust_max_ms"])
-                clear = tcdc.mean() <= nc["cloud_mean_max_pct"]
-                dry = dpt_ss <= nc["dewpoint_sunset_max_c"]
-                cond = bool(calm and clear and dry)
-                lo_t, hi_t = nc["near_trigger_tmin_c"]
-                trigger = cond and tmin <= thr
-                near = cond and (lo_t <= tmin <= hi_t)
-                rec = dict(tmin_c=tmin,
-                           hours_below=int((tmp < thr).sum()),
-                           degree_hours_below=float(np.clip(thr - tmp, 0, None).sum()),
+                k = int(tmp.argmin())
+                w = slice(max(0, k - pre + 1), k + 1)   # the `pre` hours up to and including Tmin
+                # estimated leaf temperature per regime -> degree-hours below the dose base
+                dh = lambda off: float(np.clip(nc["dose_base_c"] - (tmp - off), 0, None).sum())
+                rec = dict(tmin_c=float(tmp[k]),
+                           tmin_local=ok_hours[k].astimezone(tz).isoformat(timespec="minutes"),
+                           wind_pre_tmin_ms=float(wind[w].mean()), cloud_pre_tmin_pct=float(tcdc[w].mean()),
                            wind_mean_ms=float(wind.mean()), gust_max_ms=float(gust.max()),
-                           cloud_mean_pct=float(tcdc.mean()))
+                           cloud_mean_pct=float(tcdc.mean()),
+                           dh_radiative=dh(nc["leaf_offset_radiative_c"]), dh_advective=dh(0.0))
             else:
-                trigger = near = False
-                rec = dict(tmin_c=np.nan, hours_below=0, degree_hours_below=np.nan,
-                           wind_mean_ms=np.nan, gust_max_ms=np.nan, cloud_mean_pct=np.nan)
+                rec = dict(tmin_c=np.nan, tmin_local=None, wind_pre_tmin_ms=np.nan, cloud_pre_tmin_pct=np.nan,
+                           wind_mean_ms=np.nan, gust_max_ms=np.nan, cloud_mean_pct=np.nan,
+                           dh_radiative=np.nan, dh_advective=np.nan)
             rows.append(dict(cell_id=cid, night=d.isoformat(),
                              sunset_local=ss.astimezone(tz).isoformat(timespec="minutes"),
                              sunrise_local=sr.astimezone(tz).isoformat(timespec="minutes"),
                              n_hours=len(hours), n_hours_missing=len(hours) - len(ok),
-                             dewpoint_sunset_c=dpt_ss, **rec,
-                             trigger=bool(trigger), near_trigger=bool(near)))
-    df = pd.DataFrame(rows)
-    df["dose_degree_hours"] = df["degree_hours_below"]
-    return df
+                             dewpoint_sunset_c=dpt_ss, **rec))
+    return flag(pd.DataFrame(rows), nc)
 
 
 def run(cfg, log=print, workers: int = 8, dry_run: bool = False):

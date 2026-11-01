@@ -1,4 +1,4 @@
-# All thresholds are initial proposals (Phase 1). Do not tune in this phase.
+# All thresholds are initial proposals (Phase 1) unless noted; night parameters calibrated (see night:).
 study:
   county_fips: "16011"          # Bingham County, ID (confirmed at step 0 for 2024). 2022 Teton run: no trigger night inside any growth phase (emergence ~Jul 1-9)
   candidate_counties: {Bingham: "16011", Jefferson: "16051", Bonneville: "16019"}
@@ -13,6 +13,7 @@ paths:
 
 data:
   cdl_potato_class: 43
+  cdl_confidence_rule: "field"  # user decision 2026-10-30: per-pixel confidence fragmented fields (median 3 pieces, CSB polygon 93 % CDL potato but 75 % kept). "field": keep field if median confidence of its CDL potato px >= cdl_min_confidence, then use all its CDL potato px. "pixel": brief rule
   cdl_min_confidence: 40        # percent. Brief: 75. Set to 40 by user for 2024: the 2024 10 m layer (GEE random-forest probabilities) tops out ~70 on Bingham potato (0 % of pixels >= 75); >= 40 keeps 68 %
   csb_release: "NationalCSB_2018-2025_rev23"
   csb_inward_buffer_m: 10
@@ -25,19 +26,42 @@ data:
   work_crs: "EPSG:32612"        # UTM 12N
 
 night:
-  frost_threshold_c: 1.0        # trigger: min TMP <= this; also dose base
-  wind_mean_max_ms: 2.5
-  gust_max_ms: 6.0              # no hourly gust > this
-  cloud_mean_max_pct: 30.0
-  dewpoint_sunset_max_c: 5.0
-  near_trigger_tmin_c: [4.0, 10.0]
+  # Calibrated 2026-10-31 from literature + RTMA-RU (no ground data, no satellite fit: the 2024
+  # S2 signal shows no frost damage to fit against).  Phase 1 rule was: Tmin <= 1 C AND night-mean
+  # wind <= 2.5 m/s AND gust <= 6 AND cloud <= 30 % AND sunset Td <= 5 C (all as a hard gate).
+  # Trigger: RTMA hourly 2 m Tmin <= threshold of the night's regime, where
+  #   advective = leaf_critical + rtma_margin + hourly_miss
+  #   radiative = advective + leaf_offset_radiative
+  leaf_critical_c: -2.0         # potato foliage injury onset. FAO 2005 (Snyder & de Melo-Abreu) Tab. 4.5: -1..-2 C
+                                # (flowering/fruiting); Seppanen et al. 2000 (Agric. Food Sci.): lethal -2.5..-3 C
+  leaf_offset_radiative_c: 2.0  # leaf colder than 2 m air on clear calm nights: ~0.5-2.2 C (1-4 F, irrigation texts),
+                                # < 3 K (micromet.), up to 3 C over 0.5 m in canopies.  Upper-middle of the range
+  rtma_margin_c: 1.0            # assumption: RTMA analysis error + cold-air pooling of a field inside its 2.5 km cell
+  hourly_miss_c: 1.0            # RTMA-RU 2024 (9 cold nights, 8469 Bingham cell-nights with Tmin <= 5 C): 15-min night min
+                                # is below the on-the-hour min by median 0.32, p90 0.98, p95 1.14 C -> p90
+  pre_tmin_hours: 3             # regime judged on the hours up to and including Tmin (frost forms before dawn;
+                                # an evening wind / cloud deck that clears later does not prevent it)
+  wind_max_ms: 2.7              # radiative if mean 10 m wind <= this: ~2 m/s at 2 m (FAO-56 log profile u2 = 0.75 u10);
+                                # decoupled stable regime below ~1 m/s at 2 m (SBL literature) -> generous for a screen
+  cloud_max_pct: 30.0           # radiative if mean TCDC <= this.  No published number; clear-sky condition (FAO 2005 Tab. 1.1)
+  dose_base_c: -1.0             # dose = degree-hours of estimated leaf temp (TMP - regime offset) below this
+                                # (= leaf_critical + rtma_margin; the hourly values need no hourly_miss)
+  near_trigger_tmin_c: [6.0, 12.0]  # control nights: radiative regime, Tmin well clear of the radiative trigger
+  # dewpoint at sunset and gust are reported only (dewpoint predicts cooling, but Tmin is observed;
+  # RTMA gust mostly duplicates wind)
 
 growth:
   emergence_evi2: 0.20
   smoothing_window_obs: 3       # simple rule: centered running median (3 clear obs) of field-median EVI2
 
 gpr:
-  min_clear_obs_since_emergence: 4
+  # Brief: >= 4 clear obs since emergence. With a 5-day revisit and emergence Jun 8-18 that is
+  # never met on the Jun 18 2024 frost (0 valid px). Relaxed: >= 4 clear obs (bare soil included,
+  # they anchor the pre-emergence baseline) within obs_window_days before the night, of which
+  # >= min_clear_obs_since_emergence after emergence. Brief rule = (4, window null).
+  min_clear_obs_before: 4
+  obs_window_days: 45
+  min_clear_obs_since_emergence: 1
   max_gap_before_days: 20
   max_gap_after_days: 10
 
