@@ -25,6 +25,18 @@ data:
   dem_gsd_m: 10
   work_crs: "EPSG:32612"        # UTM 12N
 
+s2_qa:
+  # Field-level acquisition filter (data/s2qa.py): a field-date is used whole or not at all.
+  enabled: true                 # false: use every SCL-clear pixel as before (comparison runs)
+  min_field_clear_share: 0.95   # share of field pixels SCL-clear (4/5); partial dates leave holes
+  hot_min_evi2: 0.50            # haze test by HOT only on closed-canopy field-dates: soil is HOT-bright;
+                                # at EVI2 0.3-0.4 30 % of clear low-AOT dates exceed hot_anom_max, >= 0.5: 0.3-3 %
+  hot_anom_max: 0.010           # HOT above the field's own clear vegetated-date median (reflectance).
+                                # 2024 Bingham: HOT anom > 0.02 -> median EVI2 -0.13 vs neighbouring
+                                # dates (false "damage"); 0.01-0.02 ambiguous; <= 0.01 no drop
+  aot_max: 0.30                 # fallback on non-vegetated dates only. Sen2Cor AOT (550 nm): clear
+                                # ~0.05-0.15 (Bingham median 0.125); 2024-07-23/28 smoke 0.45-0.49
+
 night:
   # Calibrated 2026-10-31 from literature + RTMA-RU (no ground data, no satellite fit: the 2024
   # S2 signal shows no frost damage to fit against).  Phase 1 rule was: Tmin <= 1 C AND night-mean
@@ -43,7 +55,12 @@ night:
                                 # an evening wind / cloud deck that clears later does not prevent it)
   wind_max_ms: 2.7              # radiative if mean 10 m wind <= this: ~2 m/s at 2 m (FAO-56 log profile u2 = 0.75 u10);
                                 # decoupled stable regime below ~1 m/s at 2 m (SBL literature) -> generous for a screen
-  cloud_max_pct: 30.0           # radiative if mean TCDC <= this.  No published number; clear-sky condition (FAO 2005 Tab. 1.1)
+  cloud_max_pct: 30.0           # radiative if mean TCDC <= this.  No published number; clear-sky condition (FAO 2005 Tab. 1.1),
+                                # ~2 oktas ("mostly clear")
+  cloud_neighbourhood_cells: 3  # ... in the field's cell AND as the mean of the n x n cells around it (3 = ~7.5 km).
+                                # No published area rule. Geometry: share of sky back-radiation from within zenith
+                                # angle t is sin^2(t); for low cloud (base ~1 km) one cell (+-1.25 km) covers ~61 %,
+                                # 3x3 (+-3.75 km) ~93 %, 5x5 ~97 %. A clear 2.5 km hole in a deck is not radiative.
   dose_base_c: -1.0             # dose = degree-hours of estimated leaf temp (TMP - regime offset) below this
                                 # (= leaf_critical + rtma_margin; the hourly values need no hourly_miss)
   near_trigger_tmin_c: [6.0, 12.0]  # control nights: radiative regime, Tmin well clear of the radiative trigger
@@ -64,6 +81,22 @@ gpr:
   min_clear_obs_since_emergence: 1
   max_gap_before_days: 20
   max_gap_after_days: 10
+  # Variants (method.py docstring); baseline evi2_gpr_dev_v1 = hyper pixel, mean constant
+  hyper: "field"                # pixel | field: one hyperparameter set per field and interval, fitted jointly
+  hyper_sample_px: 300          #   on a random sample of the field's pixels (>= 3 clear obs before the night)
+  mean: "reference"             # constant | reference: smoothed level at the last obs + expected change
+
+reference:
+  # Expected field-median EVI2 change over a gap, learned from frost-free intervals of other fields
+  # (gpr.mean: reference). k nearest intervals in standardised (EVI2 before, slope before, gap, day of year).
+  lockbox_share: 0.3            # = validation/config.yaml split.holdout_share: lockbox fields never train it
+  folds: 10                     # leave-fold-out: a field is never predicted from its own intervals
+  k_neighbors: 50
+  min_clear_share: 0.5          # a date enters the field-median series if >= this share of pixels is clear
+  max_step: 3                   # pairs (k, k + j), j <= max_step, to cover longer gaps
+  max_gap_days: 25
+  min_tmin_c: 6.0               # frost-free = every night of the interval RTMA Tmin >= this (conservative, user decision
+                                # 2026-11-02, as validation null_min_tmin_c); null = only "no trigger night"
 
 damage:
   z_damaged: -2.0
@@ -71,3 +104,49 @@ damage:
   # hyperparameters fitted per pixel by sklearn's marginal likelihood
   kernel: "rbf_white"
   length_scale_init_days: 20.0
+
+frost_evidence:
+  # Satellite-first method (methods/frost_evidence): the score uses only Sentinel-2 EVI2; weather and
+  # terrain only label how plausible frost is as the cause (never a gate). Expected growth = evi2_gpr
+  # with gpr.hyper field + gpr.mean reference (forced), using the gpr / reference sections above.
+  z_damaged: -2.0               # calibrated z (Phi^-1 of the frost-free rank)
+  n_post: 2                     # clear obs after the night used as evidence (damage persists: Sentinel-2 vineyard
+  persist_days: 20              #   frost recovery ~40 d, Cogato et al. 2020) ... within this many days of the night
+  ref_rho: 0.5                  # assumption: correlation of the expected-change errors of the two post obs
+  smooth_px: 3                  # spatial support: mean of z over a 3 x 3 window of valid pixels
+  calibrate: true               # empirical calibration on frost-free intervals of other fields (leave-fold-out,
+  cal_fields: 150               #   non-lockbox, reference.min_tmin_c floor on every night of [d, d + persist_days))
+  cal_px_per_case: 1500
+  cal_min_n: 500                # (stage, n_post) cells with fewer samples fall back to the stage
+  stage_bins: [0.35, 0.60]      # stage by the pixel's level s: early < 0.35 <= mid < 0.60 <= closed
+  # attribution only
+  field_flag_share: 0.10        # field-night "damage" if >= this share of valid pixels has z <= z_damaged
+  sigma_c: 2.0                  # assumption: sd of leaf Tmin around the estimate (RTMA error, leaf offset, pooling)
+  hourly_miss_median_c: 0.3     # RTMA-RU 2024: 15-min night min below the hourly min by median 0.32 C (see night:)
+  pool_radius_m: 300            # cold-pool index = elevation - mean elevation within this radius (DEM 10 m)
+  pool_c_per_m: 0.1             # assumption: radiative nights, extra leaf cooling per m below the surroundings
+  pool_max_c: 4.0
+  p_frost_min: 0.10             # "frost plausible" if any field pixel has p_frost >= this
+
+frost_signature:
+  # Multi-index, recovery-shaped method (methods/frost_signature): Sentinel-2 only in the score; weather and
+  # terrain only for attribution (frost_evidence settings below are repeated where shared).
+  z_damaged: -2.0
+  n_post: 3                     # clear obs after the night used as evidence ...
+  persist_days: 30              # ... within this many days (hail on cereals: AUC over 32 d, Remote Sens. 14:951)
+  half_days: [7, 14, 28]        # recovery half-times tried (potato regrowth 7-14 d, extension sources; wheat after
+                                # hail ~24 d; vineyard frost ~40 d, Cogato et al. 2020); max over them
+  dead_share: 0.75              # frost-killed material = 0.75 desiccated haulm + 0.25 bare soil (assumption)
+  smooth_px: 3
+  calibrate: true
+  cal_fields: 100
+  cal_px_per_case: 1500
+  cal_min_n: 500
+  stage_bins: [0.35, 0.60]
+  field_flag_share: 0.10
+  sigma_c: 2.0
+  hourly_miss_median_c: 0.3
+  pool_radius_m: 300
+  pool_c_per_m: 0.1
+  pool_max_c: 4.0
+  p_frost_min: 0.10

@@ -1,0 +1,9 @@
+{
+ "run_id": "frost_phys_dev_v2",
+ "method": "frost_phys",
+ "split": "dev",
+ "threshold": 2.1249999999999973,
+ "git_commit": "877e5b1ff0f664a37289b3383cee4295791b7a95-dirty",
+ "started": "2026-11-02T21:54:40",
+ "finished": "2026-11-02T21:55:33"
+}

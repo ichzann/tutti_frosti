@@ -1,0 +1,81 @@
+# Validation harness settings (Tier 1: null calibration + synthetic damage injection).
+# Fixed for every method so scorecards are comparable. Do not tune per method.
+
+split:
+  holdout_share: 0.3        # fields with md5(field_id) % 1000 < 300 are the lockbox: never used while
+                            # developing a method; scored once per method for the final comparison
+sample:
+  n_fields: 150             # random dev (or holdout) fields per run; null: all null cases of these fields
+  seed: 0
+
+domain:
+  # Field-intervals evaluated, defined by the harness (not by any method) so all methods face the same set.
+  # Growth phase as in the brief: smoothed (running median, 3 usable dates) field-median EVI2 > 0.20 up to
+  # its peak. Interval = consecutive usable acquisitions (a_k, a_k+1) with a_k in [emergence, peak).
+  min_field_clear_share: 0.5  # a date is "usable" for a field if >= this share of its pixels is clear
+  emergence_evi2: 0.20
+  smoothing_window_obs: 3
+  # night of a case: random date in [a_k, a_k+1 - 1]; null cases exclude intervals with a trigger night
+  # (in the field's RTMA cell) in that range
+  null_min_tmin_c: 6.0        # user decision 2026-11-02: frost-free must be conservative (the trigger rule uses
+                              # 2.5 km 2 m air Tmin; leaves and low spots can be colder). Every night of the interval
+                              # needs RTMA Tmin >= this (= lower bound of the control nights). 2024 dev: 81 of 477
+                              # intervals fail it (36 at <= 2 C on advective nights); 6 intervals fall in 4-6 C.
+                              # Applied after the random draws: remaining cases keep their case_id.
+                              # Before: no filter (runs evi2_gpr_dev_v1, v2_fieldhyp_ref, v2a_fieldhyp_const)
+  stage_bins: [0.35, 0.60]    # stage by field-median EVI2 at a_k: early < 0.35 <= mid < 0.60 <= closed
+
+injection:
+  # Frost signature added to the real EVI2 series after the night (real noise and cloud gaps kept):
+  #   evi2' = soil + (evi2 - soil) * (1 - f * w * D(dt)),  only where evi2 > soil
+  # f = canopy loss level, w = spatial weight (pattern), dt = days after the night.
+  soil_evi2: 0.10
+  levels: [0.05, 0.10, 0.20, 0.35, 0.50]
+  patterns: [whole, low]      # whole: every field pixel; low: pixels at or below the field's
+  low_quantile: 0.35          #   35th percentile of elevation (cold-air pooling)
+  recovery: {hold_days: 7, half_days: 21, floor: 0.5}  # D = 1 up to 7 d, linear to 0.5 at 21 d, then 0.5
+  # each null case gets one (pattern, level), drawn from a shuffled balanced cycle
+  #
+  # mode (user decision 2026-11-02: spectral): evi2 = the EVI2 signature above (runs up to frost_evidence_dev_v1);
+  # spectral = linear spectral mixing on all 10 bands (validation/cases.inject_spectral): a share
+  # loss = f * w * D(dt) of the pixel's green canopy fraction g turns into frost-killed material
+  #   E_k = dead_mix * E_dead + (1 - dead_mix) * E_soil,  refl' = refl + loss * g * (E_k - E_green)
+  # with harness-owned endmembers from dev fields (cases.endmembers, cached cache/validation_endmembers_*.json);
+  # EVI2 is recomputed from the injected red / NIR.  D = 1 up to hold_days, then halves every half_days.
+  mode: spectral
+  hold_days: 3                # necrosis visible within days (Gabbrielli et al. 2022: NDRE caught frost in 1-4 d)
+  half_days: [7, 14, 28]      # recovery speed, one per case (potato regrowth 7-14 d: extension sources;
+                              # hail on wheat ~24 d, Remote Sens. 14:951; vineyard frost ~40 d, Cogato et al. 2020)
+  dead_mix: [0.5, 1.0]        # uniform per case: share of killed canopy that stays as dead leaves (vs. exposed soil)
+
+haze:
+  # Nuisance run (spectral mode): residual haze on the first clear obs after the night, every field pixel,
+  # refl' = refl + a * (lambda / 490 nm) ** -angstrom. A method should not flag it (criterion N5).
+  enabled: true
+  blue_refl: [0.01, 0.02, 0.03]   # a, one per case. Own 2024 data: HOT anomaly 0.01-0.02 ambiguous, > 0.02 gave
+                                  # EVI2 -0.13 (README, s2_qa)
+  angstrom: 1.5                   # assumption: Angstrom exponent of continental aerosol ~1-2
+
+metrics:
+  field_flag_share: 0.10      # a field-case is "flagged damaged" if >= 10 % of its valid pixels pass the
+                              # method's threshold
+  field_min_valid_px: 100
+  fpr_target: 0.05            # threshold-free comparison: TPR at the null score 95th percentile
+  drop_bins: [0.0, 0.02, 0.04, 0.06, 0.08, 0.12, 0.20, 1.0]   # absolute EVI2 drop at the first obs after
+  bootstrap: 200              # cluster bootstrap over fields for 95 % CIs of headline metrics
+
+criteria:
+  # PROVISIONAL, proposed 2026-11-01, not yet approved by the user. Change only by user decision.
+  N1_coverage_min: 0.50       # share of domain pixels the method returns as valid (null run)
+  N2_fpr_px_max: 0.05         # null pixels at or above the method's threshold
+  N3_fpr_field_max: 0.05      # null field-cases flagged damaged
+  N4_cov95_range: [0.90, 0.98]  # probabilistic methods only: 95 % interval coverage of the observation
+  I1_auc_level: 0.20          # pixel AUC (injected vs null) at canopy loss 0.20 ...
+  I1_auc_min: 0.80
+  I2_tpr_level: 0.20          # detection rate at the method's own threshold at canopy loss 0.20 ...
+  I2_tpr_min: 0.50
+  I3_field_level: 0.35        # field-cases flagged at canopy loss 0.35, pattern whole ...
+  I3_field_min: 0.80
+  I4_validity_ratio_min: 0.90 # injected-run valid share / null-run valid share (damage must not
+                              # make the method go silent, e.g. by moving the growth peak)
+  N5_haze_fpr_field_max: 0.05 # spectral mode: haze-only cases flagged damaged (PROVISIONAL, proposed 2026-11-02)

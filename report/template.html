@@ -118,8 +118,14 @@ function drawTimeline() {
     if (nd.ptrig) s += `<rect x="${x(d)}" y="30" width="${w}" height="14" fill="${doseCol(nd.maxdose)}" stroke="${"#7f0000"}" stroke-width="0.6"><title>${n}: trigger in ${nd.ptrig} potato cells, max dose ${nd.maxdose} °C·h</title></rect>`;
     if (nd.pnear) s += `<rect x="${x(d)}" y="52" width="${w}" height="14" fill="#fde7c2" stroke="${"#e08e0b"}" stroke-width="0.8"><title>${n}: near-trigger in ${nd.pnear} potato cells</title></rect>`;
   }
-  for (const [a, cf] of D.acq) {
+  const fs = selField && D.detail[selField] ? D.detail[selField].series : null;
+  const acqRows = fs ? fs.all_dates.map((a, k) => [a, fs.clear_share[k], (fs.drop_reason || [])[k]]) : D.acq;
+  for (const [a, cf, drop] of acqRows) {
     const d = dayOf(a); if (d < 0 || d > NDAYS) continue;
+    if (drop) {  // field-level QA (data/s2qa.py): date not used for this field
+      s += `<g stroke="var(--trig)" stroke-width="1.4"><line x1="${x(d) - 2}" x2="${x(d) + 4}" y1="79" y2="85"/><line x1="${x(d) - 2}" x2="${x(d) + 4}" y1="85" y2="79"/><title>${a}: dropped for this field (${drop})</title></g>`;
+      continue;
+    }
     const op = cf == null ? 0.08 : 0.12 + 0.88 * cf;
     s += `<circle cx="${x(d) + 1}" cy="82" r="4" fill="var(--acq)" fill-opacity="${op}" stroke="var(--acq)" stroke-opacity="${Math.max(op, .3)}"><title>${a}: clear share of field pixels ${cf == null ? "n/a" : Math.round(cf * 100) + "%"}</title></circle>`;
   }
@@ -128,7 +134,7 @@ function drawTimeline() {
     s += `<line x1="${x(d)}" x2="${x(d)}" y1="96" y2="102" stroke="#999"/><text x="${x(d) + 2}" y="114" font-size="11" fill="#666">${dt.toLocaleString("en", { month: "short", timeZone: "UTC" })}</text>`;
   }
   s += `<line x1="${x(dayOf(selNight)) + 1}" x2="${x(dayOf(selNight)) + 1}" y1="10" y2="${H - 18}" stroke="#000" stroke-width="2"/>`;
-  s += `<text x="${L}" y="${H - 2}" font-size="10" fill="#777">trigger fill = max dose over potato cells (0→20+ °C·h) · S2 dot opacity = clear share · band = ${selField ? "selected field" : "county median"} growth stage · click to select a night</text>`;
+  s += `<text x="${L}" y="${H - 2}" font-size="10" fill="#777">trigger fill = max dose over potato cells (0→20+ °C·h) · S2 dot opacity = clear share${selField ? ", red × = date dropped for this field (cloud / haze / aot)" : ""} · band = ${selField ? "selected field" : "county median"} growth stage · click to select a night</text>`;
   svg.innerHTML = s;
   svg.onclick = ev => {
     const r = svg.getBoundingClientRect(), d = Math.round((ev.clientX - r.left - L) / (W - L - R) * NDAYS);

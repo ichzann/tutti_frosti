@@ -206,6 +206,16 @@ def fetch_all(cfg, need, win, workers: int = 8, log=print):
 
 
 # ------------------------------------------------------------- nights -----
+def neighbourhood_mean(a, n):
+    """Mean over the n x n cells centred on each cell (NaN-aware at the window edge)."""
+    if n <= 1:
+        return a
+    h = n // 2
+    p = np.pad(a.astype("float64"), h, constant_values=np.nan)
+    st = np.stack([p[dj:dj + a.shape[0], di:di + a.shape[1]] for dj in range(n) for di in range(n)])
+    return np.nanmean(st, 0)
+
+
 def thresholds(nc):
     """Trigger thresholds on RTMA hourly 2 m Tmin per night regime (see config.yaml: night)."""
     base = nc["leaf_critical_c"] + nc["rtma_margin_c"] + nc["hourly_miss_c"]
@@ -220,7 +230,11 @@ def flag(df, nc) -> pd.DataFrame:
     air temperature) and is still evaluated, against a colder threshold.
     """
     thr = thresholds(nc)
-    rad = ((df.wind_pre_tmin_ms <= nc["wind_max_ms"]) & (df.cloud_pre_tmin_pct <= nc["cloud_max_pct"]))
+    # clear = the cell AND its n x n neighbourhood (a clear hole in a cloud deck still gets
+    # back-radiation from the surrounding cloud; see config.yaml: cloud_neighbourhood_cells)
+    cloud_nb = df.get("cloud_pre_tmin_nb_pct", df.cloud_pre_tmin_pct)
+    rad = ((df.wind_pre_tmin_ms <= nc["wind_max_ms"]) & (df.cloud_pre_tmin_pct <= nc["cloud_max_pct"])
+           & (cloud_nb <= nc["cloud_max_pct"]))
     out = df.copy()
     out["regime"] = np.where(df.tmin_c.isna(), None, np.where(rad, "radiative", "advective"))
     out["trigger_thr_c"] = np.where(rad, thr["radiative"], thr["advective"])
@@ -239,6 +253,8 @@ def build_nights(cfg, cell_df, data, win) -> pd.DataFrame:
     jj = (cell_df.j - j0).to_numpy()
     ii = (cell_df.i - i0).to_numpy()
     tz = ZoneInfo(cfg["study"]["timezone"])
+    nb = nc.get("cloud_neighbourhood_cells", 1)
+    tcdc_nb = {h: neighbourhood_mean(g["TCDC"], nb) for h, g in data.items() if "TCDC" in g}
     rows = []
     for d in season_dates(cfg):
         for c, (cid, la, lo, j, i) in enumerate(zip(cell_df.cell_id, cell_df.lat, cell_df.lon, jj, ii)):
@@ -255,6 +271,7 @@ def build_nights(cfg, cell_df, data, win) -> pd.DataFrame:
             wind = np.array([g["WIND"][j, i] for g in ok])
             gust = np.array([g["GUST"][j, i] for g in ok])
             tcdc = np.array([g["TCDC"][j, i] for g in ok])
+            tcdc_n = np.array([tcdc_nb[h][j, i] for h in ok_hours])
             hs = data.get(_nearest_hour(ss))
             dpt_ss = float(hs["DPT"][j, i] - 273.15) if hs is not None and "DPT" in hs else np.nan
             if len(ok):
@@ -265,11 +282,16 @@ def build_nights(cfg, cell_df, data, win) -> pd.DataFrame:
                 rec = dict(tmin_c=float(tmp[k]),
                            tmin_local=ok_hours[k].astimezone(tz).isoformat(timespec="minutes"),
                            wind_pre_tmin_ms=float(wind[w].mean()), cloud_pre_tmin_pct=float(tcdc[w].mean()),
+                           cloud_pre_tmin_nb_pct=float(tcdc_n[w].mean()),
+                           # evening cooling rate (first 3 h after sunset), C/h: clear calm nights
+                           # cool fast; reported only, an independent check of the cloud input
+                           cooling_evening_c_h=float((tmp[0] - tmp[3]) / 3) if len(tmp) > 3 else np.nan,
                            wind_mean_ms=float(wind.mean()), gust_max_ms=float(gust.max()),
                            cloud_mean_pct=float(tcdc.mean()),
                            dh_radiative=dh(nc["leaf_offset_radiative_c"]), dh_advective=dh(0.0))
             else:
                 rec = dict(tmin_c=np.nan, tmin_local=None, wind_pre_tmin_ms=np.nan, cloud_pre_tmin_pct=np.nan,
+                           cloud_pre_tmin_nb_pct=np.nan, cooling_evening_c_h=np.nan,
                            wind_mean_ms=np.nan, gust_max_ms=np.nan, cloud_mean_pct=np.nan,
                            dh_radiative=np.nan, dh_advective=np.nan)
             rows.append(dict(cell_id=cid, night=d.isoformat(),

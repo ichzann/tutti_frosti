@@ -1,0 +1,9 @@
+{
+ "run_id": "frost_recovery_dev_v1",
+ "method": "frost_recovery",
+ "split": "dev",
+ "threshold": 2.0,
+ "git_commit": "877e5b1ff0f664a37289b3383cee4295791b7a95-dirty",
+ "started": "2026-11-03T16:15:46",
+ "finished": "2026-11-03T16:16:35"
+}

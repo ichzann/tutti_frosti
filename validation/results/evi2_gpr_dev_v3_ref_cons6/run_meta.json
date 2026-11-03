@@ -1,0 +1,9 @@
+{
+ "run_id": "evi2_gpr_dev_v3_ref_cons6",
+ "method": "evi2_gpr",
+ "split": "dev",
+ "threshold": 2.0,
+ "git_commit": "877e5b1ff0f664a37289b3383cee4295791b7a95-dirty",
+ "started": "2026-11-02T12:17:35",
+ "finished": "2026-11-02T12:17:53"
+}

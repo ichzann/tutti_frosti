@@ -1,0 +1,9 @@
+{
+ "run_id": "frost_stat_dev_v4",
+ "method": "frost_stat",
+ "split": "dev",
+ "threshold": 1.6448536269514729,
+ "git_commit": "877e5b1ff0f664a37289b3383cee4295791b7a95-dirty",
+ "started": "2026-11-02T22:58:42",
+ "finished": "2026-11-02T23:12:47"
+}

@@ -4,3 +4,5 @@ runs/*
 __pycache__/
 *.pyc
 .DS_Store
+validation/results/*/pixels.parquet
+validation/results/*/case_results.parquet

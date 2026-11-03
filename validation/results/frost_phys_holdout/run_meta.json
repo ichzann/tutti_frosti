@@ -1,0 +1,9 @@
+{
+ "run_id": "frost_phys_holdout",
+ "method": "frost_phys",
+ "split": "holdout",
+ "threshold": 2.1249999999999973,
+ "git_commit": "877e5b1ff0f664a37289b3383cee4295791b7a95-dirty",
+ "started": "2026-11-02T23:14:54",
+ "finished": "2026-11-02T23:15:36"
+}

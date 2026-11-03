@@ -1,0 +1,74 @@
+split:
+  holdout_share: 0.3
+sample:
+  n_fields: 150
+  seed: 0
+domain:
+  min_field_clear_share: 0.5
+  emergence_evi2: 0.2
+  smoothing_window_obs: 3
+  null_min_tmin_c: 6.0
+  stage_bins:
+  - 0.35
+  - 0.6
+injection:
+  soil_evi2: 0.1
+  levels:
+  - 0.05
+  - 0.1
+  - 0.2
+  - 0.35
+  - 0.5
+  patterns:
+  - whole
+  - low
+  low_quantile: 0.35
+  recovery:
+    hold_days: 7
+    half_days: 21
+    floor: 0.5
+  mode: spectral
+  hold_days: 3
+  half_days:
+  - 7
+  - 14
+  - 28
+  dead_mix:
+  - 0.5
+  - 1.0
+haze:
+  enabled: true
+  blue_refl:
+  - 0.01
+  - 0.02
+  - 0.03
+  angstrom: 1.5
+metrics:
+  field_flag_share: 0.1
+  field_min_valid_px: 100
+  fpr_target: 0.05
+  drop_bins:
+  - 0.0
+  - 0.02
+  - 0.04
+  - 0.06
+  - 0.08
+  - 0.12
+  - 0.2
+  - 1.0
+  bootstrap: 200
+criteria:
+  N1_coverage_min: 0.5
+  N2_fpr_px_max: 0.05
+  N3_fpr_field_max: 0.05
+  N4_cov95_range:
+  - 0.9
+  - 0.98
+  I1_auc_level: 0.2
+  I1_auc_min: 0.8
+  I2_tpr_level: 0.2
+  I2_tpr_min: 0.5
+  I3_field_level: 0.35
+  I3_field_min: 0.8
+  I4_validity_ratio_min: 0.9
+  N5_haze_fpr_field_max: 0.05

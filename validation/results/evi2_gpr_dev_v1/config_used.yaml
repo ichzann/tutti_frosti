@@ -1,0 +1,60 @@
+study:
+  county_fips: '16011'
+  candidate_counties:
+    Bingham: '16011'
+    Jefferson: '16051'
+    Bonneville: '16019'
+  year: 2024
+  season_start: '2024-05-01'
+  season_end: '2024-09-30'
+  timezone: America/Denver
+paths:
+  cache: cache
+  runs: runs
+data:
+  cdl_potato_class: 43
+  cdl_confidence_rule: field
+  cdl_min_confidence: 40
+  csb_release: NationalCSB_2018-2025_rev23
+  csb_inward_buffer_m: 10
+  min_field_area_ha: 4.0
+  s2_collection: sentinel-2-l2a
+  s2_clear_scl:
+  - 4
+  - 5
+  s2_resolution_m: 10
+  dem_collection: 3dep-seamless
+  dem_gsd_m: 10
+  work_crs: EPSG:32612
+s2_qa:
+  enabled: true
+  min_field_clear_share: 0.95
+  hot_min_evi2: 0.5
+  hot_anom_max: 0.01
+  aot_max: 0.3
+night:
+  leaf_critical_c: -2.0
+  leaf_offset_radiative_c: 2.0
+  rtma_margin_c: 1.0
+  hourly_miss_c: 1.0
+  pre_tmin_hours: 3
+  wind_max_ms: 2.7
+  cloud_max_pct: 30.0
+  cloud_neighbourhood_cells: 3
+  dose_base_c: -1.0
+  near_trigger_tmin_c:
+  - 6.0
+  - 12.0
+growth:
+  emergence_evi2: 0.2
+  smoothing_window_obs: 3
+gpr:
+  min_clear_obs_before: 4
+  obs_window_days: 45
+  min_clear_obs_since_emergence: 1
+  max_gap_before_days: 20
+  max_gap_after_days: 10
+damage:
+  z_damaged: -2.0
+  kernel: rbf_white
+  length_scale_init_days: 20.0

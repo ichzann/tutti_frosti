@@ -1,0 +1,62 @@
+# frost_phys settings (method-owned; deep-copied into cfg["frost_phys"] by Method.__init__).
+# Values are physical / literature assumptions or generic statistical choices, not fitted to the harness.
+
+z_damaged: -2.0               # calibrated z (Phi^-1 of the frost-free rank of the smoothed statistic); damaged if z <= this
+                              # (replaced by the field-level threshold below when field_alpha is set)
+field_alpha: 0.05             # method-owned field-level error control: the z threshold is the largest one at which
+                              # <= field_alpha of frost-free calibration field-intervals have >= field_flag_share of
+                              # their valid pixels flagged (leave-fold-out calibration data, other fields)
+field_delta: 0.05             # ... with confidence 1 - field_delta (field-cluster bootstrap upper bound)
+field_boot: 1000
+field_flag_share: 0.10        # field-night "damage" share (also used in attribution, as frost_evidence)
+
+# validity (no GP here: a level and a change model only)
+max_gap_before_days: 20       # last clear obs before the night
+max_gap_after_days: 10        # first clear obs after the night
+n_post: 3                     # clear obs after the night used as evidence ...
+persist_days: 30              # ... within this many days of the night
+
+# recovery shapes: canopy loss A * 0.5 ** (t / h) (potato regrowth 7-14 d, extension sources; hail on wheat ~24 d,
+# Remote Sens. 14:951; vineyard frost ~40 d, Cogato et al. 2020); statistic = max over h
+half_days: [7, 14, 28]
+# frost-killed material = m * desiccated haulm + (1 - m) * bare soil, m unknown (killed leaves stay or collapse):
+# signal subspace spanned by the two endmember differences, scanned on this grid (max over m)
+dead_share_grid: [0.0, 0.25, 0.5, 0.75, 1.0]
+
+# atmospheric nuisance: residual path reflectance a * (lambda / 490 nm) ** -alpha (Angstrom law) for any alpha in this
+# range (thin cloud ~0, smoke / continental aerosol 1-2.5); the subspace spanned by the family is projected out
+angstrom_range: [0.0, 2.5]
+haze_rank: 2                  # SVD components of the Angstrom family kept as nuisance basis
+project_brightness: false     # also project out a multiplicative change of the pre-night spectrum (illumination / BRDF)
+
+# spectral change reference: k nearest frost-free field-median intervals (other fields' folds)
+ref_k: 50
+ref_max_gap_days: 40
+ref_max_step: 4
+ref_min_tmin_c: 6.0           # frost-free = every night of the interval RTMA Tmin >= this and no trigger
+ref_min_clear_share: 0.95     # field-date enters the field-median band series if >= this share of pixels is clear
+folds: 10
+
+# residual covariance per (stage, gap bin) and calibration from frost-free intervals of other fields
+stage_bins: [0.35, 0.60]      # pixel EVI2 at the last obs before: early < 0.35 <= mid < 0.60 <= closed
+gap_bins: [8, 16, 24, 32]     # days pre -> post (all post obs): <= 7, 8-15, 16-23, 24-31, >= 32
+cov_shrink: 0.05              # covariance shrinkage towards its diagonal (Ledoit-Wolf style, fixed weight)
+smooth_px: 5                  # spatial support: mean of the statistic over a 5 x 5 window of valid pixels
+cal_px_per_case: 1500
+cal_min_n: 500                # (stage, n_post) cells with fewer samples fall back to the stage
+lockbox_share: 0.3
+
+# attribution only (as frost_evidence)
+sigma_c: 2.0
+hourly_miss_median_c: 0.3
+pool_radius_m: 300
+pool_c_per_m: 0.1
+pool_max_c: 4.0
+p_frost_min: 0.10
+
+# noise model refinements
+robust_cov: true              # residual covariance of the core (iteratively trimmed at chi2 0.975, consistency-rescaled)
+scale_adapt: true             # compound-Gaussian local scale: residual energy outside frost + haze subspaces, pooled
+scale_px: 3                   #   over post obs and a scale_px window, relative to its frost-free median; >= 1 only
+pre_pair_max_gap: 0           # level before the night = pre_weight_last * last clear obs + (1 - .) * (previous clear obs
+pre_weight_last: 0.5          #   + expected change), when the previous one is <= this many days earlier (0: last obs only)

@@ -1,0 +1,9 @@
+{
+ "run_id": "frost_evidence_dev_v1",
+ "method": "frost_evidence",
+ "split": "dev",
+ "threshold": 2.0,
+ "git_commit": "877e5b1ff0f664a37289b3383cee4295791b7a95-dirty",
+ "started": "2026-11-02T12:45:10",
+ "finished": "2026-11-02T12:45:28"
+}

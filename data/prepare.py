@@ -1,7 +1,7 @@
 """Build every cached input for the study county (each step is skipped when its cache exists)."""
 from __future__ import annotations
 
-from . import cdl, dem, rtma, s2
+from . import cdl, dem, rtma, s2, s2qa
 from .common import cache_dir
 
 
@@ -16,3 +16,4 @@ def prepare(cfg, log=print):
     cdl.county_cdl(cfg, fips)
     cdl.cleanup(cfg)
     s2.build(cfg, fips, log=log)
+    s2qa.build(cfg, fips, log=log)

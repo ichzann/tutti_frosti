@@ -1,0 +1,28 @@
+# frost_stat settings (method-owned; config.yaml is not edited). Loaded by methods/frost_stat/method.py into
+# cfg["frost_stat"]; the per-pixel evidence re-uses frost_signature's statistic with the settings in `evidence`
+# (copied into cfg["frost_signature"] of the method's own cfg copy).
+evidence:                     # = config.yaml frost_signature, except cal_fields (all non-lockbox fields)
+  n_post: 3
+  persist_days: 30
+  half_days: [7, 14, 28]
+  dead_share: 0.75
+  smooth_px: 3
+  calibrate: false            # frost_signature's own pixel calibrator is not used
+  cal_fields: 400             # calibration intervals from up to this many non-lockbox fields (2024: 399 exist)
+  cal_px_per_case: 1500
+  cal_min_n: 500
+  stage_bins: [0.35, 0.60]
+  z_damaged: -2.0
+  field_flag_share: 0.10
+  sigma_c: 2.0
+  hourly_miss_median_c: 0.3
+  pool_radius_m: 300
+  pool_c_per_m: 0.1
+  pool_max_c: 4.0
+  p_frost_min: 0.10
+test:                         # statistical layer (method.py docstring, steps 1-3)
+  alpha_field: 0.025          # field-case level: P(any pixel reported | frost-free field-night) <= this
+  alpha_pixel: 0.05           # pixel level inside a field-case that rejects
+  min_valid_px: 50            # field-level test needs at least this many valid pixels (else reason 7)
+  n_valid_bins: [1000, 4000]  # pixel-count classes for the location / scale of the field statistics
+  min_cases_stratum: 40       # (stage, pixel-count class) with fewer null cases fall back to the stage

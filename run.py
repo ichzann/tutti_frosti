@@ -129,7 +129,8 @@ def _field_job(args):
     clear_share = [float(np.isfinite(e[mask]).mean()) for e in f["evi2"]]
     series = dict(dates=[d.isoformat() for d in sd], median=np.round(smed, 3).tolist(),
                   smooth=np.round(ssm, 3).tolist(),
-                  all_dates=[d.isoformat() for d in dates], clear_share=np.round(clear_share, 3).tolist())
+                  all_dates=[d.isoformat() for d in dates], clear_share=np.round(clear_share, 3).tolist(),
+                  drop_reason=f["drop_reason"])
     m.clear_cache()
     return field_id, rows, dict(series=series, curves=curves, rel_lim=round(rel_lim, 1),
                                 shape=[int(mask.shape[0]), int(mask.shape[1])],
