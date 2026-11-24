@@ -1,0 +1,8 @@
+# c_mt_full: candidate vs c_r6a.  Module B prior (c_r6a copy) fused with Module C evidence (doc 3.5).
+# Module A / C settings: methods/c_mt/settings.yaml (clock: dev-split imagery only, user decision 2026-11-09).
+mode: full
+time_axis: calendar      # rule R1 (fixed before tests): frost only if c_mt_h1 dev M1 >= 0.7114; c_mt_h1 scored 0.694
+none_target: 0.15        # c_r1a targets (as c_r6a)
+heavy_nan_target: 0.85
+# learned from labels per fold: beta1 in {0,.1,.2,.3,.5,.75,1} x beta2 in {0,.1,.2,.3,.5} by OOF-prior censored C,
+# smallest beta1+beta2 within 0.002 of the best (rule R2: no override).  Fallback (declared before scores): 0.25 / 0.

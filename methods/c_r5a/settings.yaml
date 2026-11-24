@@ -1,0 +1,18 @@
+# c_r5a settings.  Part 1 = c_r4b analogues (no fitted weights: labels enter as targets carried by the k nearest
+# reference fields), reference trajectory = field-median log reflectance.  Part 2 = c_r4a ridge map (its own
+# settings in ridge4_settings.yaml, copied unchanged from methods/c_r4a/settings.yaml; weights learned in fit).
+usable_share: 0.5        # date used if the scene is usable and >= this share of outline pixels is clear (from c_r1a)
+min_clear_dates: 3       # a pixel needs this many clear usable dates, else NaN (from c_r1a)
+refl_floor: 0.001        # reflectance floor before the log (from c_r2b nir floor)
+grid_start_doy: 90       # day-of-year grid 90..322, 8 d steps (from c_r4b)
+grid_end_doy: 330
+grid_step_days: 8
+dtw_band: 6              # from c_r4b (chosen on dev there)
+k_neighbours: 40         # from c_r4b (chosen on dev there)
+reference: median        # CHOSEN ON DEV (offline screen, README): field-median log reflectance per date as reference
+                         #   trajectory (screened: field mean = c_r4b, mean of log, median)
+ridge_weight: 0.5        # CHOSEN ON DEV (offline screen, README): pixel loss = (1-w) analogue + w c_r4a ridge map;
+                         #   partner c_r4a chosen from blends with all earlier scored methods; w = 0.5 equal weight
+none_target: 0.15        # target carried by a no-claim reference field (from c_r1a)
+heavy_nan_target: 0.85   # target carried by a paid reference field with unknown loss (from c_r1a)
+pixel_chunk: 1500        # pixels per DTW block (memory only)

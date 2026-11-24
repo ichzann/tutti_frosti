@@ -1,0 +1,28 @@
+# Python / OS
+__pycache__/
+*.pyc
+.DS_Store
+
+# Local data (large, or contains personal data from the insurance records)
+cache/
+data/*.csv
+competition/data/
+competition_b4/data/
+validation/results/
+methods/*/cache/
+methods/*/_cache/
+methods/*/_scratch/
+runs/
+
+# Literature PDFs (copyrighted)
+papers/
+
+# Assistant / working notes
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+KICKOFF_PROMPT.md
+competition/AGENT_BRIEF.md
+competition/AGENT_PLAYBOOK.md
+max_theory_method.md
+ground_truth_litreture.md

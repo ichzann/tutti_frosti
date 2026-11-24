@@ -1,0 +1,14 @@
+# c_r2b settings.  Learned from development labels inside fit(): weights, intercept, ridge alpha (inner LOYO).
+signal: log_nir_retention   # ln(B08) of the pixel minus the pixel's own seasonal maximum of ln(B08) on the grid.
+                            # chosen on dev screens (field-median LOYO ridge C, ~20 index / feature families; see README)
+usable_share: 0.5           # date used if the scene is usable and >= this share of outline pixels is clear (as c_r1a)
+grid_start_doy: 100         # calendar grid (day of year), season 15 Mar - 15 Nov (as c_r1a)
+grid_end_doy: 330
+grid_step_days: 16          # dev screen: step 8 / 16 / 24 on ln NIR gave similar C (README)
+min_clear_dates: 3          # a pixel needs this many clear usable dates, else NaN
+nir_floor: 0.001            # reflectance floor before the log
+alphas: [10, 30, 100, 300, 1000, 3000, 10000]   # ridge alpha candidates (c_r1a grid), chosen in fit() by inner LOYO C
+none_target: 0.15           # regression target for no-claim fields (censored loss < 0.35), as c_r1a
+heavy_nan_target: 0.85      # regression target for paid fields with unknown loss, as c_r1a
+bands: [B08]               # scattering band(s); several -> geometric mean
+ref_top_k: 1               # reference = mean of the pixel's k highest grid values (1 = maximum)

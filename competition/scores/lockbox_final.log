@@ -1,0 +1,133 @@
+=== c_r6a
+c_r6a lockbox: 116 fields in 63 s, errors 0
+c_r6a lockbox: n 116 (paid 87, none 29), errors 0, no-value fields 0
+  M1 C 0.694 [0.633, 0.751] | M2 within-year C 0.726 [0.656, 0.791] | M4 AUC 0.741 [0.642, 0.833]
+  M3 median none 0.462 mild 0.464 medium 0.487 heavy 0.540 | JT z 5.61 p 0.0000
+  M5 MAE paid 0.125 | none >= 0.35 1.000 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2016:nan(n1) 2017:0.909(n8) 2018:0.333(n3) 2019:0.771(n34) 2020:0.684(n24) 2021:0.694(n37) 2022:1.000(n5) 2023:nan(n1) 2024:1.000(n3)
+=== c_r4b
+c_r4b lockbox: 116 fields in 73 s, errors 0
+c_r4b lockbox: n 116 (paid 87, none 29), errors 0, no-value fields 0
+  M1 C 0.683 [0.619, 0.742] | M2 within-year C 0.715 [0.643, 0.782] | M4 AUC 0.722 [0.618, 0.819]
+  M3 median none 0.459 mild 0.464 medium 0.482 heavy 0.550 | JT z 5.24 p 0.0000
+  M5 MAE paid 0.128 | none >= 0.35 0.897 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2016:nan(n1) 2017:0.909(n8) 2018:0.333(n3) 2019:0.754(n34) 2020:0.702(n24) 2021:0.679(n37) 2022:1.000(n5) 2023:nan(n1) 2024:0.500(n3)
+=== low_peak_evi2
+low_peak_evi2 lockbox: 116 fields in 2 s, errors 0
+low_peak_evi2 lockbox: n 116 (paid 87, none 29), errors 0, no-value fields 0
+  M1 C 0.448 [0.393, 0.509] | M2 within-year C 0.419 [0.348, 0.495] | M4 AUC 0.478 [0.374, 0.583]
+  M3 median none 0.318 mild 0.350 medium 0.334 heavy 0.277 | JT z -1.38 p 0.9160
+  M5 MAE paid 0.230 | none >= 0.35 0.241 | M6 dmg share none 0.000 mild 0.000 medium 0.000 heavy 0.000
+  per year C 2016:nan(n1) 2017:0.318(n8) 2018:0.667(n3) 2019:0.430(n34) 2020:0.425(n24) 2021:0.412(n37) 2022:0.429(n5) 2023:nan(n1) 2024:0.000(n3)
+=== ndmi_drop
+ndmi_drop lockbox: 116 fields in 2 s, errors 0
+ndmi_drop lockbox: n 116 (paid 87, none 29), errors 0, no-value fields 0
+  M1 C 0.505 [0.437, 0.571] | M2 within-year C 0.493 [0.414, 0.575] | M4 AUC 0.484 [0.352, 0.605]
+  M3 median none 0.273 mild 0.237 medium 0.284 heavy 0.248 | JT z -0.13 p 0.5514
+  M5 MAE paid 0.298 | none >= 0.35 0.276 | M6 dmg share none 0.000 mild 0.000 medium 0.000 heavy 0.000
+  per year C 2016:nan(n1) 2017:0.682(n8) 2018:1.000(n3) 2019:0.443(n34) 2020:0.689(n24) 2021:0.458(n37) 2022:0.429(n5) 2023:nan(n1) 2024:0.500(n3)
+=== era5_coldest
+era5_coldest lockbox: n 116 (paid 87, none 29), errors 0, no-value fields 0
+  M1 C 0.510 [0.434, 0.584] | M2 within-year C 0.533 [0.445, 0.624] | M4 AUC 0.485 [0.343, 0.627]
+  M3 median none -2.100 mild -1.700 medium -2.100 heavy -1.100 | JT z 0.10 p 0.4601
+  M5 MAE paid 2.148 | none >= 0.35 0.276 | M6 dmg share none nan mild nan medium nan heavy nan
+  per year C 2016:nan(n1) 2017:0.886(n8) 2018:0.667(n3) 2019:0.671(n34) 2020:0.487(n24) 2021:0.424(n37) 2022:0.143(n5) 2023:nan(n1) 2024:1.000(n3)
+=== compare c_r6a c_r4b
+{
+ "a": "c_r6a",
+ "b": "c_r4b",
+ "split": "lockbox",
+ "M1_a": 0.6940451745379876,
+ "M1_b": 0.6827515400410678,
+ "diff": 0.011293634496919891,
+ "diff_ci": [
+  0.0008316027977243569,
+  0.023853944179468973
+ ],
+ "p_a_gt_b": 0.9825
+}
+=== compare c_r6a low_peak_evi2
+{
+ "a": "c_r6a",
+ "b": "low_peak_evi2",
+ "split": "lockbox",
+ "M1_a": 0.6940451745379876,
+ "M1_b": 0.44815195071868585,
+ "diff": 0.2458932238193018,
+ "diff_ci": [
+  0.15953583418369582,
+  0.33193708536045996
+ ],
+ "p_a_gt_b": 1.0
+}
+=== compare c_r6a ndmi_drop
+{
+ "a": "c_r6a",
+ "b": "ndmi_drop",
+ "split": "lockbox",
+ "M1_a": 0.6940451745379876,
+ "M1_b": 0.5049623545516769,
+ "diff": 0.1890828199863107,
+ "diff_ci": [
+  0.1047597447911474,
+  0.2823252716589006
+ ],
+ "p_a_gt_b": 0.9995
+}
+=== compare c_r6a era5_coldest
+{
+ "a": "c_r6a",
+ "b": "era5_coldest",
+ "split": "lockbox",
+ "M1_a": 0.6940451745379876,
+ "M1_b": 0.5095824777549623,
+ "diff": 0.1844626967830253,
+ "diff_ci": [
+  0.08271332386765351,
+  0.2811931355254506
+ ],
+ "p_a_gt_b": 1.0
+}
+=== compare c_r4b low_peak_evi2
+{
+ "a": "c_r4b",
+ "b": "low_peak_evi2",
+ "split": "lockbox",
+ "M1_a": 0.6827515400410678,
+ "M1_b": 0.44815195071868585,
+ "diff": 0.2345995893223819,
+ "diff_ci": [
+  0.1450896530459105,
+  0.3233087247103265
+ ],
+ "p_a_gt_b": 1.0
+}
+=== compare c_r4b ndmi_drop
+{
+ "a": "c_r4b",
+ "b": "ndmi_drop",
+ "split": "lockbox",
+ "M1_a": 0.6827515400410678,
+ "M1_b": 0.5049623545516769,
+ "diff": 0.17778918548939082,
+ "diff_ci": [
+  0.09206445690830402,
+  0.2709861300152274
+ ],
+ "p_a_gt_b": 0.9995
+}
+=== compare c_r4b era5_coldest
+{
+ "a": "c_r4b",
+ "b": "era5_coldest",
+ "split": "lockbox",
+ "M1_a": 0.6827515400410678,
+ "M1_b": 0.5095824777549623,
+ "diff": 0.1731690622861054,
+ "diff_ci": [
+  0.06995731689641864,
+  0.2718207369512309
+ ],
+ "p_a_gt_b": 0.9995
+}
+DONE

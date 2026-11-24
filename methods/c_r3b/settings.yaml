@@ -1,0 +1,17 @@
+# c_r3b settings.  Learned from development labels inside fit(): residue ridge weights + intercept (10 + 1),
+# EVI2-profile ridge weights + intercept (15 + 1), profile ridge alpha (inner leave-one-year-out C, as c_r1a).
+usable_share: 0.5           # date used if the scene is usable and >= this share of outline pixels is clear (from c_r1a)
+min_clear_dates: 3          # a pixel needs this many clear usable dates, else NaN (from c_r1a)
+# residue component: 10-band reflectance at the pixel's own lowest-EVI2 date after its own EVI2 maximum
+residue_alpha: 3000         # CHOSEN ON DEV: fixed alpha screened at lam 0.5 (M1 / compare p vs c_r1a, offline LOYO):
+                            #   100 0.671/0.82, 300 0.674/0.89, 1000 0.678/0.97, 3000 0.679/0.998, 10000 0.672/0.999;
+                            #   inner-LOYO selection rules gave 0.657-0.675 (README)
+blend_lam: 0.5              # weight of the residue component; equal weight set before scoring, kept (README lists
+                            #   the learned-weight rules tried: 0.656, 0.650, 0.661)
+# EVI2 calendar-profile component (c_r1a unchanged)
+grid_start_doy: 100
+grid_end_doy: 330
+grid_step_days: 16
+profile_alphas: [10, 30, 100, 300, 1000, 3000, 10000]
+none_target: 0.15           # regression target for no-claim fields (from c_r1a)
+heavy_nan_target: 0.85      # regression target for paid fields with unknown loss (from c_r1a)

@@ -1,0 +1,24 @@
+# c_r6a settings (from c_r5a, ridge_weight changed).  Part 1 = c_r4b analogues (no fitted weights: labels enter as targets carried by the k nearest
+# reference fields), reference trajectory = field-median log reflectance.  Part 2 = c_r4a ridge map (its own
+# settings in ridge4_settings.yaml, copied unchanged from methods/c_r4a/settings.yaml; weights learned in fit).
+usable_share: 0.5        # date used if the scene is usable and >= this share of outline pixels is clear (from c_r1a)
+min_clear_dates: 3       # a pixel needs this many clear usable dates, else NaN (from c_r1a)
+refl_floor: 0.001        # reflectance floor before the log (from c_r2b nir floor)
+grid_start_doy: 90       # day-of-year grid 90..322, 8 d steps (from c_r4b)
+grid_end_doy: 330
+grid_step_days: 8
+dtw_band: 6              # from c_r4b (chosen on dev there)
+k_neighbours: 40         # from c_r4b (chosen on dev there)
+reference: median        # CHOSEN ON DEV (offline screen, README): field-median log reflectance per date as reference
+                         #   trajectory (screened: field mean = c_r4b, mean of log, median)
+ridge_weight: 0.3        # CHOSEN ON DEV (c_r6a offline replica, README): pixel loss = (1-w) analogue + w c_r4a ridge map;
+                         #   screened w 0 / 0.3 / 0.4 / 0.5 (c_r5a: 0.5; partner c_r4a from c_r5a's screen)
+none_target: 0.15        # target carried by a no-claim reference field (from c_r1a)
+heavy_nan_target: 0.85   # target carried by a paid reference field with unknown loss (from c_r1a)
+pixel_chunk: 1500        # pixels per DTW block (memory only)
+# --- c_r7a changes (both CHOSEN ON DEV, offline replica 120 px / field, README) ---
+cost_power: 1.25         # DTW cell cost = (squared band-vector distance) ** p; screened p via cost families:
+                         #   log1p 0.692 / sqrt 0.698 / pseudo-Huber 0.703-0.707 / 1 (c_r6a) 0.709 / 1.25 0.711 /
+                         #   1.5 0.711 / 2 0.710 (analogue part alone)
+atypical_quantile: 0.8   # pixels whose log trajectory is farther from the field-median trajectory than this field
+                         #   quantile get the mean loss of the other pixels; screened 0.6 / 0.7 / 0.8 / 0.9 / 1 (off)

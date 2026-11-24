@@ -1,0 +1,23 @@
+# c_r4a settings.  Learned from development labels inside fit(): per component ridge weights + intercept
+# (prof 15 + 1, ret 15 + 1, res 10 + 1, resn 10 + 1); alpha of prof and ret by inner leave-one-year-out C.
+usable_share: 0.5           # date used if the scene is usable and >= this share of outline pixels is clear (from c_r1a)
+min_clear_dates: 3          # a pixel needs this many clear usable dates, else NaN (from c_r1a)
+grid_start_doy: 100         # calendar grid for prof and ret (from c_r1a)
+grid_end_doy: 330
+grid_step_days: 16
+nir_floor: 0.001            # reflectance floor before ln (from c_r2b)
+# components, averaged with equal weight (each clipped to 0..1 per pixel):
+#   prof  = EVI2 calendar profile (c_r1a)
+#   ret   = ln NIR retention curve, ln B08(t) - pixel max (c_r2b)
+#   res   = 10-band spectrum at the pixel's lowest-EVI2 date after its EVI2 maximum (c_r3b)
+#   resn  = 10-band spectrum at the pixel's lowest-NIR (B08) date after its EVI2 maximum (new)
+components: [prof, ret, res, resn]   # CHOSEN ON DEV (offline LOYO screen, README): set of components
+alpha:
+  prof: inner               # inner LOYO C over profile_alphas (c_r1a)
+  ret: inner                # inner LOYO C over profile_alphas (c_r2b)
+  res: 3000                 # from c_r3b (chosen on dev there)
+  resn: 3000                # copied from res, not tuned separately (offline screen 300/1000/3000 shown in README)
+fill_missing: {prof: false, ret: false, res: true, resn: true}
+profile_alphas: [10, 30, 100, 300, 1000, 3000, 10000]
+none_target: 0.15           # regression target for no-claim fields (from c_r1a)
+heavy_nan_target: 0.85      # regression target for paid fields with unknown loss (from c_r1a)

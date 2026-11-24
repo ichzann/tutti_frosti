@@ -1,0 +1,14 @@
+# c_r4b settings.  Nothing is fitted by a weight vector: the labels enter only as the targets carried by the
+# k nearest reference fields (analogues).
+usable_share: 0.5        # date used if the scene is usable and >= this share of outline pixels is clear (from c_r1a)
+min_clear_dates: 3       # a pixel needs this many clear usable dates, else NaN (from c_r1a)
+refl_floor: 0.001        # reflectance floor before the log (from c_r2b nir floor)
+grid_start_doy: 90       # day-of-year grid 90..322, 8 d steps (set before the first screen, not varied)
+grid_end_doy: 330
+grid_step_days: 8
+dtw_band: 6              # CHOSEN ON DEV: Sakoe-Chiba band in grid steps (+-48 d); screened 0/2/4/6/8 (README)
+k_neighbours: 40         # CHOSEN ON DEV: analogues per pixel; screened 10/20/40/80 (README); inner leave-one-year-out
+                         #   selection over {10,20,40,80} x W {4,6,8} picked k = 40 in all 9 outer folds
+none_target: 0.15        # target carried by a no-claim reference field (from c_r1a)
+heavy_nan_target: 0.85   # target carried by a paid reference field with unknown loss (from c_r1a)
+pixel_chunk: 1500        # pixels per DTW block (memory only)

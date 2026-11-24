@@ -1,0 +1,4 @@
+# c_mt_perm: falsification F6.  As c_mt_h1, but the per-year delta_y are permuted across years (seed fixed in the
+# design doc before any test: 20261109).  Clock: dev-split imagery only, user decision 2026-11-09.
+time_axis: frost
+perm_seed: 20261109

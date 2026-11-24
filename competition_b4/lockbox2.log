@@ -1,0 +1,69 @@
+=== c_r7a 2026-11-11 15:08:47
+c_r7a lockbox: 99 fields in 422 s, errors 0
+c_r7a lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.618 [0.547, 0.687] | M2 within-year C 0.665 [0.581, 0.746] | M4 AUC 0.638 [0.526, 0.751]
+  M3 median none 0.448 mild 0.464 medium 0.466 heavy 0.493 | JT z 2.89 p 0.0019
+  M5 MAE paid 0.145 | none >= 0.35 1.000 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.691(n32) 2020:0.620(n32) 2021:0.691(n29) 2022:0.333(n3)
+=== c_mt_full 2026-11-11 15:16:11
+c_mt_full lockbox: 99 fields in 219 s, errors 0
+c_mt_full lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.603 [0.533, 0.672] | M2 within-year C 0.643 [0.549, 0.728] | M4 AUC 0.600 [0.484, 0.713]
+  M3 median none 0.457 mild 0.467 medium 0.464 heavy 0.508 | JT z 2.61 p 0.0046
+  M5 MAE paid 0.155 | none >= 0.35 1.000 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.652(n32) 2020:0.609(n32) 2021:0.673(n29) 2022:0.667(n3)
+=== c_r6a 2026-11-11 15:20:00
+c_r6a lockbox: 99 fields in 232 s, errors 0
+c_r6a lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.616 [0.543, 0.685] | M2 within-year C 0.657 [0.566, 0.738] | M4 AUC 0.639 [0.529, 0.751]
+  M3 median none 0.450 mild 0.466 medium 0.469 heavy 0.494 | JT z 2.83 p 0.0023
+  M5 MAE paid 0.144 | none >= 0.35 1.000 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.696(n32) 2020:0.613(n32) 2021:0.668(n29) 2022:0.333(n3)
+=== c_r7b 2026-11-11 15:24:05
+c_r7b lockbox: 99 fields in 312 s, errors 0
+c_r7b lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.596 [0.523, 0.666] | M2 within-year C 0.631 [0.539, 0.719] | M4 AUC 0.604 [0.496, 0.719]
+  M3 median none 0.485 mild 0.491 medium 0.488 heavy 0.503 | JT z 2.32 p 0.0101
+  M5 MAE paid 0.142 | none >= 0.35 1.000 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.664(n32) 2020:0.629(n32) 2021:0.601(n29) 2022:0.333(n3)
+=== c_r4b 2026-11-11 15:29:26
+c_r4b lockbox: 99 fields in 228 s, errors 0
+c_r4b lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.615 [0.541, 0.686] | M2 within-year C 0.657 [0.564, 0.739] | M4 AUC 0.644 [0.532, 0.757]
+  M3 median none 0.439 mild 0.457 medium 0.461 heavy 0.494 | JT z 2.85 p 0.0022
+  M5 MAE paid 0.143 | none >= 0.35 1.000 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.681(n32) 2020:0.629(n32) 2021:0.665(n29) 2022:0.333(n3)
+=== low_peak_evi2 2026-11-11 15:33:21
+low_peak_evi2 lockbox: 99 fields in 4 s, errors 0
+low_peak_evi2 lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.508 [0.435, 0.577] | M2 within-year C 0.521 [0.438, 0.599] | M4 AUC 0.493 [0.371, 0.611]
+  M3 median none 0.339 mild 0.297 medium 0.343 heavy 0.341 | JT z -0.09 p 0.5361
+  M5 MAE paid 0.233 | none >= 0.35 0.367 | M6 dmg share none 0.000 mild 0.000 medium 0.000 heavy 0.000
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.509(n32) 2020:0.524(n32) 2021:0.532(n29) 2022:0.333(n3)
+=== ndmi_drop 2026-11-11 15:33:30
+ndmi_drop lockbox: 99 fields in 5 s, errors 0
+ndmi_drop lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.495 [0.413, 0.577] | M2 within-year C 0.515 [0.421, 0.606] | M4 AUC 0.443 [0.316, 0.577]
+  M3 median none 0.285 mild 0.271 medium 0.286 heavy 0.320 | JT z 0.06 p 0.4742
+  M5 MAE paid 0.271 | none >= 0.35 0.433 | M6 dmg share none 0.000 mild 0.000 medium 0.000 heavy 0.000
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.479(n32) 2020:0.524(n32) 2021:0.545(n29) 2022:0.333(n3)
+=== era5_coldest 2026-11-11 15:33:41
+era5_coldest lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.500 [0.427, 0.575] | M2 within-year C 0.502 [0.411, 0.595] | M4 AUC 0.526 [0.394, 0.662]
+  M3 median none -1.900 mild -1.900 medium -1.350 heavy -1.750 | JT z 0.15 p 0.4421
+  M5 MAE paid 2.315 | none >= 0.35 0.300 | M6 dmg share none nan mild nan medium nan heavy nan
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.556(n32) 2020:0.555(n32) 2021:0.382(n29) 2022:0.833(n3)
+=== done 2026-11-11 15:33:47
+=== frost_recovery family 2026-11-12 00:14:22 (frozen full-store models copied unchanged; v2 rerun after missing output dir, logged in cache/brazil_psr/handcheck_wheat/frost_b4.log)
+frost_recovery_v2 lockbox: values for 99 of 99 fields
+frost_recovery_v2 lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 0
+  M1 C 0.475 [0.400, 0.550] | M2 within-year C 0.469 [0.383, 0.556] | M4 AUC 0.377 [0.261, 0.497]
+  M3 median none 0.014 mild 0.000 medium 0.003 heavy 0.003 | JT z -0.48 p 0.6851
+  M5 MAE paid 0.509 | none >= 0.35 0.300 | M6 dmg share none nan mild nan medium nan heavy nan
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.389(n32) 2020:0.457(n32) 2021:0.566(n29) 2022:1.000(n3)
+frost_recovery lockbox: values for 86 of 99 fields
+frost_recovery lockbox: n 99 (paid 69, none 30), errors 0, no-value fields 13
+  M1 C 0.542 [0.479, 0.607] | M2 within-year C 0.523 [0.448, 0.600] | M4 AUC 0.603 [0.502, 0.703]
+  M3 median none 0.000 mild 0.000 medium 0.001 heavy 0.000 | JT z 1.25 p 0.1048
+  M5 MAE paid 0.505 | none >= 0.35 0.100 | M6 dmg share none nan mild nan medium nan heavy nan
+  per year C 2017:nan(n2) 2018:nan(n1) 2019:0.542(n32) 2020:0.421(n32) 2021:0.622(n29) 2022:0.500(n3)

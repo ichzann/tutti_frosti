@@ -1,0 +1,6 @@
+# c_r1b settings
+index: cire        # CIre = B07/B05 - 1; chosen on dev (field-level screen + LOYO ablation, README)
+frac: 0.5          # half-amplitude crossing (standard phenology convention); dev ablation 0.3 / 0.5 / 0.7, README
+min_obs: 3         # structural minimum (a point before, at and after the peak); dev ablation 3 / 5 / 8: M1 0.647 / 0.647 / 0.646
+none_cap: 0.35     # no-claim fields: censored, loss < 0.35 (FRAME.md)
+default_params: {m: 230.0, s: 15.0, hi: 0.8}   # start values for the fit only; fitted by fit() on labels

@@ -1,0 +1,33 @@
+# c_mt shared settings: Module A (satellite frost clock) and Module C (stage-locked evidence).
+# Source of every value: max_theory_method.md section 3.6 (fixed before any test run; not changed after Module A output).
+# User decision 2026-11-09: the clock and every imagery table are built from DEV-split fields only (clock_split).
+clock_split: dev          # user decision 2026-11-09: lockbox imagery never enters Module A or any imagery table
+usable_share: 0.5         # as c_r6a
+refl_floor: 0.001         # as c_r6a
+min_dates_heading: 6      # A1: H_k NaN below this many usable dates
+heading_doy: [135, 300]   # A1: wheat heading window under ZARC sowing dates
+dt_min: 3                 # A2: interval length 3..30 d
+dt_max: 30
+canopy_evi2: 0.30         # A2: canopy present
+stage_bin: 16             # A3: 16 d stage bins over -112..+112 (end bins open)
+stage_lim: 112
+dt_classes: [10, 20, 30]  # A3: 3-10, 11-20, 21-30 d
+min_cell: 30              # A3: cell merged with neighbour stage bin below this count
+sigma_floor_q: 0.10       # A3: sigma floored at this quantile of all cell sigmas
+event_excl: 0.3           # A3 pass 2: intervals with max omega_hat (pass 1) over (a, b] >= this are excluded
+persist_frac: 0.5         # A4: Dc >= 0.5 Db
+shock_z: -2.0             # A5
+day_range: [75, 319]      # A6
+n_min: 8                  # A6: q defined if N >= 8
+smooth_days: 5            # A6
+e_sat: 0.10               # A6 (pre-declared fallback 0.05 if no year reaches max omega_hat >= 0.3)
+n0: 10                    # A7 shrinkage
+delta_min_omega: 0.3      # A8: delta = 0 if max omega_hat < 0.3
+delta_core_frac: 0.5      # A8: main frost period = omega_hat >= 0.5 max
+delta_clip: 24            # A8
+pix_per_field: 200        # Module C pixel table: random outline pixels per field
+pix_seed: 20261109
+evid_z: -1.0              # Module C: evidence onset z <= -1
+S_knots: [[-60, 0.05], [-40, 0.10], [-15, 0.45], [-3, 1.0], [14, 1.0], [30, 0.7], [45, 0.25], [60, 0.0]]
+S_nan: 0.5                # S if H_k is NaN
+workers: 6                # offline cache builds (a background job runs on this machine)

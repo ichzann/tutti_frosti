@@ -1,0 +1,47 @@
+# frost_recovery settings (method-owned; config.yaml is not edited). Loaded by methods/frost_recovery/method.py
+# and stored under cfg["frost_recovery"] (deep copy) so cache keys follow them.
+# Literature sources of the trajectory / stage settings: papers/ (Zhou et al. 2016, Ziems et al. 2006,
+# Cranshaw & Radcliffe 1980, Jalali 2013, Beresford 1967, Hackett et al. 1979) and the notes in method.py.
+lockbox_share: 0.3          # = validation split.holdout_share
+folds: 5                    # field folds (same hash as frost_alt): predicted / calibrated only from other folds
+usable_share: 0.5           # a date is usable for a field if >= this share of its pixels is clear in all 10 bands
+# growth domain at application (data up to the obs before the night only)
+min_pre_evi2: 0.15
+senescence_drop: 0.10
+max_days_before: 20         # night - pre obs
+max_days_after: 15          # first post obs - night (no evidence without an obs this soon)
+window_days: 30             # post obs used as evidence: night < post <= night + window_days (recovery phase)
+max_posts: 6
+# expected change without frost (frost_alt.build_training pairs, targets dEVI2 / dNDMI)
+max_pair_days: 45           # post - pre of training pairs (must cover max_days_before + window_days)
+min_tmin_c: 6.0             # frost-free training / calibration: every night RTMA Tmin >= this, no trigger
+max_step: 8
+train_px_per_pair: 150
+train_rows_per_fold: 400000
+gbm: {max_iter: 300, learning_rate: 0.08, min_samples_leaf: 200}
+strata: [0.25, 0.35, 0.50, 0.65, 0.80]   # field-median EVI2 at the obs before
+gap_bins: [12, 24, 36]      # residual covariance of (dEVI2, dNDMI) per (stratum, post - pre bin)
+dead_share: 0.75            # frost-killed canopy -> 0.75 desiccated haulm + 0.25 exposed soil (as frost_alt)
+# trajectory templates: loss held hold_days, then halving every h days (h = null: no recovery in the window)
+hold_days: 3                # necrosis visible within days; regrowth not before ~5 d (corn 5 d, soybean 5-6 d)
+persist_days: 10            # damage must still be present this long (Zhou 2016: 33-66 % defoliation visible
+                            # within 10 d after damage, masked by regrowth later) -> if >= 2 usable obs fall in
+                            # (night, night + persist_days], the evidence must survive dropping the strongest one
+# crop stage = P-days (Sands et al. 1979; 7 / 21 / 30 C) since emergence, gridMET Tmax / Tmin
+pday: {t_base: 7.0, t_opt: 21.0, t_max: 30.0}
+emergence_offset_days: 10   # ASSUMPTION: field-median EVI2 crosses 0.20 (growth_phase emergence) ~10 d after
+                            # plant emergence; the stage clock starts this many days earlier
+stages:                     # upper bound in P-days since emergence (~7 P-days / day in a Bingham June)
+  - {name: vegetative, until: 250, half_days: [7, 14]}         # <~5 wk: full recovery from any loss (Jalali 2013:
+                                                               # 2 wk after emergence; Zhou 2016: TI, 99 % recovered
+                                                               # by 32 d)
+  - {name: tuber_bulking, until: 550, half_days: [7, 14, null]}  # ~5-11 wk: moderate loss gone by ~20 d, 99 % no
+                                                               # recovery (Zhou 2016 early bulk)
+  - {name: late_bulk, until: 100000, half_days: [14, null]}    # little regrowth (Zhou 2016 late bulk; Beresford 1967)
+# statistic and calibration (field-level null as frost_alt)
+smooth_px: 3                # spatial support: matched-filter sums over a 3 x 3 window
+cal_px_per_interval: 2000   # pixel subsample per calibration interval for the per-stage centring / scaling
+field_flag_share: 0.10
+min_valid_px: 100
+z_damaged: 2.0              # score = Phi^-1 of the frost-free null CDF of the field's 90th-percentile statistic
+cal_min_n: 100

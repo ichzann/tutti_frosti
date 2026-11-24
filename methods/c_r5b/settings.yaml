@@ -1,0 +1,18 @@
+# c_r5b settings (random convolutional kernel transform of pixel spectral time series + ridge)
+usable_share: 0.5        # date used if scene usable and >= this share of outline pixels clear (from c_r1a)
+min_clear_dates: 3       # a pixel needs this many clear usable dates, else NaN (from c_r1a)
+refl_floor: 0.001        # reflectance floor before the log (from c_r2b)
+grid_start_doy: 90       # day-of-year grid 90..322, 4 d steps (set before the first screen, not varied)
+grid_end_doy: 326
+grid_step_days: 4
+n_kernels: 300           # random kernels (first value screened; 1000 also screened, README)
+max_channels: 3          # bands mixed per kernel: 1..3 random (set before the first screen)
+bias_quantiles: [0.25, 0.5, 0.75]   # PPV thresholds = quantiles of the kernel output on training pixels (label-free)
+zero_mean_kernels: true  # CHOSEN ON DEV: MiniRocket weights (-1 x6, +2 x3) vs random normal weights (README)
+features: [ppv]          # CHOSEN ON DEV: ppv vs ppv+max vs ppv in 3 calendar windows (README)
+alpha_grid: [1000, 3000, 10000, 30000]   # CHOSEN ON DEV: grid moved up after the first screen (1..1000); value by inner LOYO C
+seed: 0                  # kernel draw
+pixels_per_field_fit: 400  # sampled outline pixels per training field in fit (speed)
+none_target: 0.15        # target for a no-claim field (from c_r1a)
+heavy_nan_target: 0.85   # target for a paid field with unknown loss (from c_r1a)
+pixel_chunk: 4000        # pixels per block in predict (memory only)

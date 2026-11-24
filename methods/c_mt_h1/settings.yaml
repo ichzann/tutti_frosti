@@ -1,0 +1,5 @@
+# c_mt_h1: H1 test.  Module B = c_r6a unchanged (methods/c_mt/prior_settings.yaml = copy of c_r6a settings.yaml,
+# methods/c_mt/ridge4_settings.yaml = copy of c_r6a ridge4_settings.yaml) except the time axis.
+# Module A settings: methods/c_mt/settings.yaml (clock: dev-split imagery only, user decision 2026-11-09).
+time_axis: frost        # DOY' = DOY - delta_y (doc 3.3); delta_y from Module A, same rule for every year
+perm_seed: null

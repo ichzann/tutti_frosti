@@ -1,0 +1,10 @@
+# c_r1a settings.  Learned from development labels inside fit(): weights, intercept, ridge alpha (inner LOYO).
+index: evi2                 # same index as the champion low_peak_evi2
+usable_share: 0.5           # date used if the scene is usable and >= this share of outline pixels is clear
+grid_start_doy: 100         # calendar grid for the per-pixel EVI2 profile (day of year), season 15 Mar - 15 Nov
+grid_end_doy: 330
+grid_step_days: 16          # sensitivity on dev (field-median profiles, ridge alpha 1000): step 8 / 16 / 32 -> C 0.628 / 0.630 / 0.630
+min_clear_dates: 3          # a pixel needs this many clear usable dates, else NaN
+alphas: [10, 30, 100, 300, 1000, 3000, 10000]   # ridge alpha candidates; chosen in fit() by inner leave-one-year-out C on the training years (dev: grid [10,100,1000,10000] gave M1 0.612, this grid 0.652)
+none_target: 0.15           # regression target for no-claim fields (censored loss < 0.35)
+heavy_nan_target: 0.85      # regression target for paid 'heavy' fields whose loss value is missing

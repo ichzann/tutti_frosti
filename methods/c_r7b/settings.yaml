@@ -1,0 +1,17 @@
+# c_r7b settings.  Labels enter only through the ridge on the diffusion coordinates (m weights + intercept) and
+# the inner leave-one-year-out choice of the ridge strength.
+usable_share: 0.5        # date used if scene usable and >= this share of outline pixels clear (from c_r1a / c_r4b)
+min_clear_dates: 3       # a pixel needs this many clear usable dates, else NaN (from c_r1a / c_r4b)
+refl_floor: 0.001        # reflectance floor before the log (from c_r2b / c_r4b)
+grid_start_doy: 90       # doy grid 90..322, 8 d steps (from c_r4b, not varied)
+grid_end_doy: 330
+grid_step_days: 8
+dtw_band: 6              # DTW Sakoe-Chiba band, grid steps (from c_r4b; field-level screen of W 0/3/6 in README)
+eps_quantile: 0.5        # CHOSEN ON DEV: kernel width = this quantile of training DTW distances; screened 0.05..1.0
+dm_alpha: 1.0            # CHOSEN ON DEV: diffusion-map density normalisation (0 / 0.5 / 1 screened)
+n_coords: 15             # CHOSEN ON DEV: diffusion coordinates used; screened 3..50
+ridge_alphas: [1000]     # CHOSEN ON DEV: ridge strength on standardised coordinates; screened 0.3..10000 (README).
+                         #   With several values, fit picks one by inner leave-one-year-out C ([30,100,300,1000]: 0.680)
+none_target: 0.15        # target of a no-claim field (from c_r1a)
+heavy_nan_target: 0.85   # target of a paid field with unknown loss (from c_r1a)
+pixel_chunk: 1500        # pixels per DTW block (memory only)

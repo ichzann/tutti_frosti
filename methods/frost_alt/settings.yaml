@@ -1,0 +1,34 @@
+# frost_alt settings (method-owned; config.yaml is not edited). Loaded by methods/frost_alt/method.py and
+# stored under cfg["frost_alt"] (deep copy) so cache keys follow them.
+lockbox_share: 0.3          # = validation split.holdout_share: lockbox fields never enter training / calibration
+folds: 5                    # field folds (md5 "frost_alt:<field_id>"): a field is predicted and calibrated only
+                            # from models / null statistics of the other folds
+usable_share: 0.5           # a date is usable for a field if >= this share of its pixels is clear in all 10 bands
+# growth domain, from data up to the last usable obs before the night only (never from obs after it)
+min_pre_evi2: 0.15          # field-median EVI2 at the obs before >= this (emerged)
+senescence_drop: 0.10       # ... and >= (max field-median EVI2 so far) - this (not senescing)
+max_days_before: 20         # night - pre obs
+max_days_after: 15          # first post obs - night
+max_days_post2: 25          # second post obs - night
+max_pair_days: 30           # post obs - pre obs (range of the training pairs)
+# frost-free training / calibration intervals: every night in [pre, post) in the field's RTMA cell
+min_tmin_c: 6.0             # RTMA Tmin >= this and no trigger (conservative, as reference.min_tmin_c)
+max_step: 3                 # training pairs (k, k + j), j <= max_step usable dates apart
+train_px_per_pair: 250
+train_rows_per_fold: 400000
+gbm: {max_iter: 300, learning_rate: 0.08, min_samples_leaf: 200}
+strata: [0.25, 0.35, 0.50, 0.65, 0.80]   # field-median EVI2 at the obs before
+# frost / haze fingerprints
+dead_share: 0.75            # frost-killed canopy -> 0.75 desiccated haulm + 0.25 exposed soil (assumption)
+haze_angstrom: [1.0, 2.0]   # residual aerosol path reflectance ~ lambda^-alpha; both directions projected out
+half_days: 14               # assumed loss decay for weighting post obs: w = 0.5 ** (t / half_days)
+# statistic
+scales: [3, 7, field]       # box sizes (px) of the multiscale scan; 'field' = whole valid field
+field_flag_share: 0.10      # calibration target: share of valid pixels at or above the threshold in a field
+min_valid_px: 100
+z_damaged: 2.0              # score = Phi^-1 of the frost-free null CDF of the field's 90th-percentile statistic
+cal_min_n: 100
+phase: growth_to_peak       # training / calibration intervals: obs before in [emergence, peak) of the season
+                            # (hindsight selection, as the validation domain); application gate stays causal
+null_pool: all              # field-statistic null pooled over strata (per-stratum tails from 84-268 intervals had
+                            # bootstrap sd 0.3-0.6 at the 97.7 % point); scale statistics standardised per stratum

@@ -1,0 +1,14 @@
+# c_r3a settings.  Learned from development labels inside fit(): ridge weights/intercept/alpha (component A),
+# sigmoid weights/intercept/lambda (component B); alpha and lambda by inner leave-one-year-out C on training years.
+usable_share: 0.5           # date used if the scene is usable and >= this share of outline pixels is clear (c_r1a)
+grid_start_doy: 100         # calendar grid (day of year), as c_r1a
+grid_end_doy: 330
+grid_step_days: 16          # as c_r1a
+min_clear_dates: 3          # a pixel needs this many clear usable dates, else NaN (c_r1a)
+alphas: [10, 30, 100, 300, 1000, 3000, 10000]   # component A ridge alpha candidates (c_r1a grid unchanged)
+none_target: 0.15           # regression target for no-claim fields (censored loss < 0.35), as c_r1a
+heavy_nan_target: 0.85      # regression target for paid fields with unknown loss, as c_r1a
+nir_floor: 0.001            # reflectance floor before ln B08 (c_r2b)
+mil_pixels_per_field: 0     # pixels per field for fitting component B; 0 = all outline pixels (exact field mean; a 400-pixel random sample gave M1 0.671, compare p 0.955)
+mil_lambdas: [30, 100, 300] # component B L2 penalty candidates; chosen on dev screens (fixed lambda 1/10/100/300/1000/3000 looked at, see README)
+weight_evi2_ridge: 0.5      # pixel loss = w * A + (1 - w) * B; equal weight fixed a priori, not tuned

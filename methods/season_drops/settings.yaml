@@ -1,0 +1,19 @@
+# season_drops settings (fixed before any result was seen; only ageing_rate is set from data, see method.py)
+usable_share: 0.5        # a date is usable if >= this share of the field's pixels is clear in all 10 bands
+smooth_px: 3             # EVI2 mean over a 3 x 3 window of clear pixels (pixel noise)
+min_pre_evi2: 0.25       # a drop needs a vegetated canopy before it
+min_rel_drop: 0.15       # (EVI2 before - after) / EVI2 before
+max_gap_days: 30         # before -> after image gap; longer gaps cannot separate a sudden drop from ageing
+confirm_days: 30         # the next clear image after the drop must come within this many days ...
+confirm_keep: 0.5        # ... and still show at least this share of the drop (one-date dips = haze / noise)
+ageing_quantile: 0.90    # ageing_rate = this quantile of field-median EVI2 decline per day after the peak
+                         # (no-claim development fields); a drop must be faster
+min_clear_dates: 4       # a pixel needs this many clear dates inside the season to be assessed
+min_valid_px: 100        # a field needs this many assessed pixels
+cold_lag_days: 5         # event is cold if an ERA5 trigger night D has a - 5 d <= D < b (symptoms take days;
+                         # set after the first test: 2021-07-18 frost drops showed in 07-19 -> 07-24)
+# harvest: first usable date >= harvest_after_peak_days after the season peak with field-median EVI2
+# <= harvest_evi2 and no later date above regrow_evi2; the season ends the day before
+harvest_after_peak_days: 40
+harvest_evi2: 0.20
+regrow_evi2: 0.30

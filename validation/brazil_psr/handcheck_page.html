@@ -1,0 +1,155 @@
+<title>Wheat Field Outline Check</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a sticky tally bar over a single column of wide field cards (satellite strip on top, verdict row below). */
+:root {
+  --bg: #eef1ec; --surface: #ffffff; --fg: #1b231e; --muted: #5d6a61; --line: #d3dad2;
+  --accent: #8a6410; --keep: #2c7a4b; --reject: #b03a2e; --unsure: #5b5f7a; --img-bg: #10140f;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121612; --surface: #1b211c; --fg: #e4eae3; --muted: #9aa69c; --line: #2f3830;
+  --accent: #d9a93f; --keep: #5cc287; --reject: #ef7a6c; --unsure: #a3a7c4; --img-bg: #070907; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121612; --surface: #1b211c; --fg: #e4eae3; --muted: #9aa69c; --line: #2f3830;
+  --accent: #d9a93f; --keep: #5cc287; --reject: #ef7a6c; --unsure: #a3a7c4; --img-bg: #070907; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 64px; }
+h1 { font-size: 1.6rem; font-weight: 600; margin: 0; text-wrap: balance; }
+.intro { color: var(--muted); max-width: 68ch; margin: 6px 0 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+.legend b { color: var(--fg); font-weight: 500; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line); margin-top: 18px; padding-block: 10px; display: flex; flex-wrap: wrap;
+  gap: 10px 16px; align-items: center; }
+.tally { display: flex; gap: 14px; font-family: var(--mono); font-size: 0.9rem; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.tally span { white-space: nowrap; }
+.t-keep { color: var(--keep); } .t-reject { color: var(--reject); } .t-unsure { color: var(--unsure); }
+.filters { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--fg); padding: 5px 12px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filters button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.status { font-size: 0.8rem; color: var(--muted); width: 100%; }
+.list { display: grid; gap: 22px; margin-top: 18px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  border-left: 5px solid var(--line); }
+.card[data-v="keep"] { border-left-color: var(--keep); }
+.card[data-v="reject"] { border-left-color: var(--reject); }
+.card[data-v="unsure"] { border-left-color: var(--unsure); }
+.strip { background: var(--img-bg); overflow-x: auto; }
+.strip img { display: block; width: 100%; min-width: 760px; max-width: none; height: auto; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 12px 16px; }
+.fid { font-family: var(--mono); font-weight: 600; font-size: 1.15rem; }
+.area { font-family: var(--mono); font-size: 0.88rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.area b { color: var(--fg); font-weight: 600; }
+.verdict { display: flex; gap: 6px; margin-left: auto; }
+.verdict button[data-v="keep"][aria-pressed="true"] { background: var(--keep); border-color: var(--keep); color: var(--surface); }
+.verdict button[data-v="reject"][aria-pressed="true"] { background: var(--reject); border-color: var(--reject); color: var(--surface); }
+.verdict button[data-v="unsure"][aria-pressed="true"] { background: var(--unsure); border-color: var(--unsure); color: var(--surface); }
+.note { flex: 1 1 260px; min-width: 0; font: inherit; font-size: 0.9rem; padding: 5px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+.empty { color: var(--muted); padding: 30px 0; }
+@media (max-width: 560px) { .verdict { margin-left: 0; } }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .15s; } }
+</style>
+
+<div class="wrap">
+  <h1>Wheat field outline check</h1>
+  <p class="intro">Each card is one insured wheat policy from southern Brazil, 2016–2024. The yellow line is the automatic outline; its area is within ±35&nbsp;% of the insured area. Keep a field when the outline follows one real field (or a few fields farmed together) and doesn't spill onto roads, trees or a neighbour's differently coloured field. Damage group and year are hidden.</p>
+  <div class="legend">
+    <span><b>Yellow line</b> outline</span><span><b>Red ×</b> insurance point (property, ±30 m)</span>
+    <span><b>Panel 1</b> in-season, before frost</span><span><b>Panels 2–4</b> off-season, other years</span>
+  </div>
+  <div class="bar">
+    <div class="tally" id="tally"></div>
+    <div class="filters" role="group" aria-label="Show">
+      <button id="f-all" data-f="all" aria-pressed="true">All</button>
+      <button id="f-open" data-f="open" aria-pressed="false">Undecided</button>
+      <button id="f-keep" data-f="keep" aria-pressed="false">Kept</button>
+      <button id="f-reject" data-f="reject" aria-pressed="false">Rejected</button>
+      <button id="f-unsure" data-f="unsure" aria-pressed="false">Unsure</button>
+    </div>
+    <div class="status" id="status">Connecting to the saved choices…</div>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+
+<script id="fields" type="application/json">__FIELDS__</script>
+<script>
+const FIELDS = JSON.parse(document.getElementById("fields").textContent);
+const state = {};            // id -> {verdict, note}
+let filter = "all", db = null;
+const LS = "wheat-outline-check";
+try { Object.assign(state, JSON.parse(localStorage.getItem(LS) || "{}")); } catch (e) {}
+const saveLocal = () => { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} };
+const $ = (id) => document.getElementById(id);
+
+function card(f) {
+  const el = document.createElement("article");
+  el.className = "card"; el.id = "c-" + f.id;
+  el.innerHTML = `<div class="strip"><img loading="lazy" src="img/${f.id}.jpg" alt="Satellite views of field ${f.id} with outline"></div>
+    <div class="row"><span class="fid">${f.id}</span>
+      <span class="area">insured <b>${f.ins.toFixed(1)}</b> ha · outline <b>${f.out.toFixed(1)}</b> ha</span>
+      <input class="note" id="n-${f.id}" placeholder="Note (optional)" aria-label="Note for ${f.id}">
+      <div class="verdict" role="group" aria-label="Verdict for ${f.id}">
+        <button id="k-${f.id}" data-v="keep">Keep</button><button id="r-${f.id}" data-v="reject">Reject</button><button id="u-${f.id}" data-v="unsure">Unsure</button>
+      </div></div>`;
+  el.querySelectorAll(".verdict button").forEach((b) => b.addEventListener("click", () => {
+    const cur = state[f.id]?.verdict;
+    setVerdict(f.id, cur === b.dataset.v ? null : b.dataset.v, el.querySelector(".note").value);
+  }));
+  const note = el.querySelector(".note");
+  let t;
+  note.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => setVerdict(f.id, state[f.id]?.verdict ?? null, note.value), 700); });
+  return el;
+}
+
+const cards = {};
+FIELDS.forEach((f) => { cards[f.id] = card(f); $("list").appendChild(cards[f.id]); });
+
+function paint() {
+  let n = { keep: 0, reject: 0, unsure: 0 };
+  FIELDS.forEach((f) => {
+    const s = state[f.id] || {}, el = cards[f.id], v = s.verdict || "";
+    if (v) n[v]++;
+    el.dataset.v = v;
+    el.querySelectorAll(".verdict button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+    const note = el.querySelector(".note");
+    if (document.activeElement !== note) note.value = s.note || "";
+    el.hidden = !(filter === "all" || (filter === "open" ? !v : v === filter));
+  });
+  const open = FIELDS.length - n.keep - n.reject - n.unsure;
+  $("tally").innerHTML = `<span>${FIELDS.length} fields</span><span class="t-keep">${n.keep} kept</span><span class="t-reject">${n.reject} rejected</span><span class="t-unsure">${n.unsure} unsure</span><span>${open} left</span>`;
+}
+
+async function setVerdict(id, verdict, note) {
+  state[id] = { verdict, note: note || "" };
+  saveLocal(); paint();
+  if (!db) return;
+  try { await db.collection("verdicts").doc(id).set({ verdict, note: note || "", at: new Date().toISOString() }); }
+  catch (e) { $("status").textContent = "Couldn't save " + id + " to the shared list (" + e.code + "). It's kept in this browser."; }
+}
+
+document.querySelectorAll(".filters button").forEach((b) => b.addEventListener("click", () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".filters button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  paint();
+}));
+paint();
+
+(async () => {
+  db = window.claude ? await window.claude.use("db") : null;
+  if (!db) { $("status").textContent = "Choices are saved in this browser only. Send Claude the field ids you rejected."; return; }
+  const timer = setTimeout(() => { $("status").textContent = "Saved choices can't be reached yet; new clicks are kept in this browser."; }, 10000);
+  db.collection("verdicts").onSnapshot((snap) => {
+    if (!snap.metadata.fromCache) { clearTimeout(timer); $("status").textContent = "Choices save automatically. Claude reads them from here."; }
+    snap.docs.forEach((d) => { const v = d.data(); state[d.id] = { verdict: v.verdict ?? null, note: v.note || "" }; });
+    saveLocal(); paint();
+  }, (e) => { clearTimeout(timer); $("status").textContent = "Saved choices are unavailable (" + e.code + "); clicks are kept in this browser."; });
+})();
+</script>

@@ -1,0 +1,28 @@
+  fold 2016: 4 fields, 0 s
+  fold 2017: 20 fields, 1 s
+  fold 2018: 7 fields, 1 s
+  fold 2019: 79 fields, 2 s
+  fold 2020: 55 fields, 3 s
+  fold 2021: 86 fields, 3 s
+  fold 2022: 12 fields, 4 s
+  fold 2023: 4 fields, 4 s
+  fold 2024: 8 fields, 4 s
+c_mt_core dev: 275 fields in 4 s, errors 0
+c_mt_core dev: n 275 (paid 209, none 66), errors 0, no-value fields 0
+  M1 C 0.585 [0.539, 0.627] | M2 within-year C 0.612 [0.554, 0.661] | M4 AUC 0.624 [0.545, 0.698]
+  M3 median none 0.451 mild 0.480 medium 0.494 heavy 0.504 | JT z 3.63 p 0.0001
+  M5 MAE paid 0.153 | none >= 0.35 1.000 | M6 dmg share none 1.000 mild 1.000 medium 1.000 heavy 1.000
+  per year C 2016:0.250(n4) 2017:0.607(n20) 2018:0.438(n7) 2019:0.691(n79) 2020:0.408(n55) 2021:0.624(n86) 2022:0.600(n12) 2023:0.000(n4) 2024:0.833(n8)
+{
+ "a": "c_mt_core",
+ "b": "c_r6a",
+ "split": "dev",
+ "M1_a": 0.5848428260192966,
+ "M1_b": 0.7113912231559291,
+ "diff": -0.12654839713663246,
+ "diff_ci": [
+  -0.1806979283702082,
+  -0.07455599692172923
+ ],
+ "p_a_gt_b": 0.0
+}

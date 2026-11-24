@@ -1,0 +1,11 @@
+# c_r2a settings.  Learned from development labels inside fit(): weights, intercept, ridge alpha (inner LOYO + tie rule).
+indices: [evi2, cire, ndmi]   # pixel profile = concatenated calendar profiles of these indices (chosen on dev screen, see README)
+usable_share: 0.5             # as c_r1a: date used if scene usable and >= this share of outline pixels clear
+grid_start_doy: 100           # as c_r1a
+grid_end_doy: 330
+grid_step_days: 16            # as c_r1a
+min_clear_dates: 3            # as c_r1a
+alphas: [10, 30, 100, 300, 1000, 3000, 10000, 30000]   # c_r1a grid + 30000
+alpha_tie: 0.02               # largest alpha whose inner LOYO C >= best - alpha_tie (chosen on dev screen, see README)
+none_target: 0.15             # as c_r1a
+heavy_nan_target: 0.85        # as c_r1a

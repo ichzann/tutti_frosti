@@ -1,0 +1,5 @@
+# c_mt_core: physics alone.  Module A / C settings: methods/c_mt/settings.yaml (clock: dev-split imagery only,
+# user decision 2026-11-09).  Learned from labels: b0, b1, b2 (least squares of field means, b1, b2 >= 0).
+mode: core
+none_target: 0.15        # c_r1a targets
+heavy_nan_target: 0.85

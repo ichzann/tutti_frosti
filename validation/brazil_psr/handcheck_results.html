@@ -1,0 +1,296 @@
+<title>Frost Damage vs Wheat Insurance Loss</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one filter row, then two group charts side by side, a loss scatter, and a ranked method table. */
+:root {
+  --bg: #f3f4f1; --surface: #fcfcfb; --fg: #16201a; --muted: #56625a; --faint: #8a948d; --line: #dcdfd8; --grid: #e8ebe5;
+  --accent: #256abf;
+  --g0: #86b6ef; --g1: #3987e5; --g2: #1c5cab; --g3: #0d366b;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121513; --surface: #1a1d1b; --fg: #e8ece8; --muted: #a3ada6; --faint: #737d76; --line: #2e3430; --grid: #252a27;
+  --accent: #5598e7; --g0: #184f95; --g1: #256abf; --g2: #5598e7; --g3: #9ec5f4; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121513; --surface: #1a1d1b; --fg: #e8ece8; --muted: #a3ada6; --faint: #737d76; --line: #2e3430; --grid: #252a27;
+  --accent: #5598e7; --g0: #184f95; --g1: #256abf; --g2: #5598e7; --g3: #9ec5f4; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 26px 70px; }
+h1 { font-size: 1.65rem; font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.05rem; font-weight: 600; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 72ch; margin: 6px 0 0; }
+.controls { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--bg);
+  border-bottom: 1px solid var(--line); margin-top: 18px; padding-block: 12px; display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: end; }
+.ctl { display: grid; gap: 4px; min-width: 0; }
+.ctl label, .lbl { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+select, button { font: inherit; font-size: 0.92rem; border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  border-radius: 6px; padding: 5px 10px; }
+button { cursor: pointer; }
+.seg { display: flex; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 6px 6px 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.slider { display: flex; align-items: center; gap: 10px; }
+input[type=range] { width: 200px; max-width: 46vw; accent-color: var(--accent); }
+.val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 0.92rem; min-width: 9ch; }
+.counts { width: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--mono); font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.counts b { color: var(--fg); font-weight: 600; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px 34px; margin-top: 22px; }
+.stat .num { font-family: var(--mono); font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .sub { font-size: 0.82rem; color: var(--muted); max-width: 28ch; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-top: 22px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+.panel p.note { color: var(--muted); font-size: 0.85rem; margin: 4px 0 8px; max-width: 70ch; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font-family: var(--sans); font-size: 11px; }
+svg .ax { stroke: var(--line); }
+svg .gl { stroke: var(--grid); }
+svg .med { stroke: var(--fg); stroke-width: 2; }
+svg .dot { stroke: var(--surface); stroke-width: 1.5; }
+svg .dot.hi { stroke: var(--fg); stroke-width: 2; }
+.tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 7px 10px; font-size: 0.82rem; box-shadow: 0 4px 14px rgba(0,0,0,.14); font-variant-numeric: tabular-nums; }
+.tip .fid { font-family: var(--mono); font-weight: 600; }
+.tablewrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 500; vertical-align: bottom; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--bg); }
+tbody tr[aria-selected="true"] td:first-child { color: var(--accent); font-weight: 600; }
+td.mname { font-family: var(--mono); }
+.bar { display: inline-block; height: 8px; border-radius: 0 4px 4px 0; background: var(--accent); vertical-align: middle; margin-right: 6px; }
+.defs { margin-top: 26px; color: var(--muted); font-size: 0.86rem; max-width: 80ch; }
+.defs dt { color: var(--fg); font-weight: 600; margin-top: 8px; }
+.defs dd { margin: 2px 0 0; }
+@media (max-width: 520px) { .stat .num { font-size: 1.3rem; } }
+</style>
+
+<div class="wrap">
+  <h1>Frost damage vs wheat insurance loss</h1>
+  <p class="lede"><span id="nTotal"></span> hand-checked wheat fields (southern Brazil, 2019–2021), each matched to one PSR insurance policy. Relative loss = (1 − coverage) + coverage × payout ÷ insured value. "No claim" fields lost less than the 35&nbsp;% deductible. Each method scores the frost nights from ERA5; a field's value is its most damaged night.</p>
+
+  <div class="controls" role="group" aria-label="Filters">
+    <div class="ctl"><label for="method">Method</label><select id="method"></select></div>
+    <div class="ctl"><span class="lbl">Area match</span>
+      <div class="slider"><div class="seg" role="group" aria-label="Area match unit">
+          <button id="u-ha" data-u="ha" aria-pressed="true">ha</button><button id="u-pct" data-u="pct" aria-pressed="false">%</button></div>
+        <input type="range" id="tol" min="0.5" max="25" step="0.5" value="25" aria-label="Maximum difference between outline and insured area">
+        <span class="val" id="tolv"></span></div></div>
+    <div class="ctl"><span class="lbl">Nights</span>
+      <div class="seg" role="group" aria-label="Nights"><button id="k-ev" data-k="event" aria-pressed="true">Frost nights</button><button id="k-pl" data-k="placebo" aria-pressed="false">Placebo (−35 d)</button></div></div>
+    <div class="ctl"><label for="year">Year</label><select id="year"><option value="all">All years</option><option>2019</option><option>2020</option><option>2021</option></select></div>
+    <div class="counts" id="counts"></div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="grid2">
+    <section class="panel"><h2 id="t1">Share of the field flagged as damaged</h2>
+      <p class="note">One dot per field; the black bar is the group median. Groups ordered by insured loss.</p>
+      <svg id="c1" viewBox="0 0 520 300" role="img" aria-label="Damaged share by loss group"></svg></section>
+    <section class="panel"><h2 id="t2">Damage magnitude</h2>
+      <p class="note" id="n2">Mean score of the damaged pixels (fields with no damaged pixel: 0).</p>
+      <svg id="c2" viewBox="0 0 520 300" role="img" aria-label="Damage magnitude by loss group"></svg></section>
+  </div>
+
+  <section class="panel" style="margin-top:20px"><h2>Relative loss vs damaged share</h2>
+    <p class="note">Frost-paid fields at their relative loss. No-claim fields are drawn in the band left of 35&nbsp;%: their exact loss is unknown, only that it was below the deductible.</p>
+    <svg id="c3" viewBox="0 0 1060 320" role="img" aria-label="Relative loss against damaged share"></svg></section>
+
+  <section class="panel" style="margin-top:20px"><h2>All methods, current filter</h2>
+    <p class="note">Click a row to show that method above. Columns are explained below the table.</p>
+    <div class="tablewrap"><table id="tbl"><thead><tr>
+      <th>Method</th><th>Fields</th><th>AUC paid vs none</th><th>AUC heavy vs none</th><th>ρ group</th><th>ρ loss (paid)</th>
+      <th>Median none</th><th>Mild</th><th>Medium</th><th>Heavy</th><th>Placebo AUC</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <dl class="defs">
+    <dt>Area match</dt><dd>Keeps only fields whose automatic outline differs from the insured area by at most the chosen hectares (or percent). All 110 fields are within 35 %.</dd>
+    <dt>AUC paid vs none</dt><dd>Chance that a random frost-paid field scores higher than a random no-claim field (0.5 = no separation, 1 = perfect; ties count half). Score = damaged share for the methods, the value itself for the baselines.</dd>
+    <dt>ρ group</dt><dd>Spearman rank correlation between loss group (none &lt; mild &lt; medium &lt; heavy) and the score.</dd>
+    <dt>ρ loss (paid)</dt><dd>Spearman correlation between relative loss and score among frost-paid fields only.</dd>
+    <dt>Placebo AUC</dt><dd>The same AUC on a night 35 days before each frost night. It should be near 0.5; a high value means the score separates the groups for reasons other than the frost night.</dd>
+    <dt>Baselines</dt><dd>era5_cold = how cold the coldest frost night was; ndmi_drop = field-median NDMI fall within 5–40 days after the night; low_peak_evi2 = how low the season's greenness peak stayed.</dd>
+  </dl>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const ROWS = D.rows, GROUPS = ["none", "mild", "medium", "heavy"];
+const GL = { none: "No claim", mild: "Mild 35–50 %", medium: "Medium 50–70 %", heavy: "Heavy ≥ 70 %" };
+const S = { method: D.default_method, unit: "ha", tol: 25, kind: "event", year: "all" };
+try { Object.assign(S, JSON.parse(localStorage.getItem("frost-loss-view") || "{}")); } catch (e) {}
+const $ = (id) => document.getElementById(id);
+const methods = [...new Set(ROWS.map((r) => r.method))].sort((a, b) => (a.startsWith("baseline") - b.startsWith("baseline")) || a.localeCompare(b));
+$("method").innerHTML = methods.map((m) => `<option value="${m}">${m}</option>`).join("");
+$("nTotal").textContent = new Set(ROWS.map((r) => r.field_id)).size;
+const isBase = (m) => m.startsWith("baseline");
+const val = (r) => (isBase(r.method) ? r.q90 : r.share);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function passArea(r) { return S.unit === "ha" ? Math.abs(r.dha) <= S.tol + 1e-9 : Math.abs(r.drel) * 100 <= S.tol + 1e-9; }
+function pick(method, kind) {
+  return ROWS.filter((r) => r.method === method && r.kind === kind && passArea(r) && (S.year === "all" || String(r.year) === S.year)
+    && Number.isFinite(val(r)));
+}
+function auc(pos, neg) {
+  if (!pos.length || !neg.length) return null;
+  let s = 0; for (const a of pos) for (const b of neg) s += a > b ? 1 : a === b ? 0.5 : 0;
+  return s / (pos.length * neg.length);
+}
+function ranks(a) { const o = a.map((v, i) => [v, i]).sort((x, y) => x[0] - y[0]), r = new Array(a.length);
+  for (let i = 0; i < o.length;) { let j = i; while (j + 1 < o.length && o[j + 1][0] === o[i][0]) j++;
+    for (let k = i; k <= j; k++) r[o[k][1]] = (i + j) / 2; i = j + 1; } return r; }
+function spearman(x, y) { if (x.length < 6) return null; const a = ranks(x), b = ranks(y), n = a.length;
+  const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n; let c = 0, va = 0, vb = 0;
+  for (let i = 0; i < n; i++) { c += (a[i] - ma) * (b[i] - mb); va += (a[i] - ma) ** 2; vb += (b[i] - mb) ** 2; }
+  return va && vb ? c / Math.sqrt(va * vb) : null; }
+const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const f2 = (v) => (v == null ? "–" : v.toFixed(2));
+function metrics(method, kind) {
+  const R = pick(method, kind), by = (g) => R.filter((r) => r.group === g).map(val);
+  const none = by("none"), paid = R.filter((r) => r.group !== "none");
+  return { n: R.length, aucPaid: auc(paid.map(val), none), aucHeavy: auc(by("heavy"), none),
+    rhoG: spearman(R.map((r) => GROUPS.indexOf(r.group)), R.map(val)),
+    rhoL: spearman(paid.map((r) => r.loss), paid.map(val)), med: GROUPS.map((g) => median(by(g))), R };
+}
+
+// ---------- charts ----------
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, at, parent) { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); parent && parent.appendChild(e); return e; }
+function niceMax(v) { if (!(v > 0)) return 1; const p = 10 ** Math.floor(Math.log10(v)), m = v / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 2.5 ? 2.5 : m <= 5 ? 5 : 10) * p; }
+function ticks(lo, hi, n = 4) { const st = (hi - lo) / n; return Array.from({ length: n + 1 }, (_, i) => lo + st * i); }
+const fmtT = (v) => (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(1) : v.toFixed(2));
+function jitter(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return ((h % 1000) / 1000) - 0.5; }
+
+const tip = $("tip");
+function showTip(ev, r) {
+  tip.innerHTML = `<div class="fid">${r.field_id} · ${r.year}</div>${GL[r.group]}${r.group !== "none" ? ` · loss ${(r.loss * 100).toFixed(0)} %` : ""}<br>
+    ${isBase(r.method) ? `value ${fmtT(r.q90)}` : `damaged share ${(r.share * 100).toFixed(1)} % · magnitude ${fmtT(r.magnitude)}`}<br>
+    night ${r.night}<br>insured ${r.ins.toFixed(1)} ha · outline ${r.out.toFixed(1)} ha (${r.dha >= 0 ? "+" : ""}${r.dha.toFixed(1)} ha)`;
+  tip.hidden = false;
+  const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8), y = Math.min(ev.clientY + 14, window.innerHeight - tip.offsetHeight - 8);
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function bindDot(c, r) {
+  c.addEventListener("pointerenter", (e) => { c.classList.add("hi"); showTip(e, r); });
+  c.addEventListener("pointermove", (e) => showTip(e, r));
+  c.addEventListener("pointerleave", () => { c.classList.remove("hi"); tip.hidden = true; });
+}
+
+function groupChart(svg, R, get, isPct) {
+  svg.innerHTML = "";
+  const W = 520, H = 300, L = 46, Rr = 10, T = 12, B = 40, pw = W - L - Rr, ph = H - T - B;
+  const vals = R.map(get).filter(Number.isFinite);
+  let lo = Math.min(0, ...vals), hi = niceMax(Math.max(...vals, isPct ? 0.05 : 0.1));
+  if (lo < 0) lo = -niceMax(-lo);
+  const y = (v) => T + ph - ((v - lo) / (hi - lo)) * ph;
+  for (const t of ticks(lo, hi)) {
+    el("line", { x1: L, x2: W - Rr, y1: y(t), y2: y(t), class: "gl" }, svg);
+    el("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }, svg).textContent = isPct ? (t * 100).toFixed(0) + " %" : fmtT(t);
+  }
+  el("line", { x1: L, x2: W - Rr, y1: y(Math.max(lo, 0)), y2: y(Math.max(lo, 0)), class: "ax" }, svg);
+  const bw = pw / GROUPS.length;
+  GROUPS.forEach((g, i) => {
+    const cx = L + bw * (i + 0.5), rs = R.filter((r) => r.group === g && Number.isFinite(get(r)));
+    el("text", { x: cx, y: H - B + 18, "text-anchor": "middle" }, svg).textContent = GL[g];
+    el("text", { x: cx, y: H - B + 32, "text-anchor": "middle" }, svg).textContent = `n = ${rs.length}`;
+    for (const r of rs) {
+      const c = el("circle", { cx: cx + jitter(r.field_id) * bw * 0.5, cy: y(get(r)), r: 4.5, class: "dot", fill: css(`--g${i}`) }, svg);
+      bindDot(c, r);
+    }
+    const m = median(rs.map(get));
+    if (m != null) el("line", { x1: cx - bw * 0.3, x2: cx + bw * 0.3, y1: y(m), y2: y(m), class: "med" }, svg);
+  });
+}
+
+function scatter(svg, R, get, isPct) {
+  svg.innerHTML = "";
+  const W = 1060, H = 320, L = 52, Rr = 14, T = 12, B = 40, pw = W - L - Rr, ph = H - T - B;
+  const x = (v) => L + v * pw;
+  const vals = R.map(get).filter(Number.isFinite);
+  let lo = Math.min(0, ...vals), hi = niceMax(Math.max(...vals, isPct ? 0.05 : 0.1));
+  if (lo < 0) lo = -niceMax(-lo);
+  const y = (v) => T + ph - ((v - lo) / (hi - lo)) * ph;
+  el("rect", { x: x(0), y: T, width: x(0.35) - x(0), height: ph, fill: css("--grid") }, svg);
+  el("text", { x: x(0.175), y: T + 14, "text-anchor": "middle" }, svg).textContent = "no claim (loss < 35 %)";
+  for (const t of ticks(lo, hi)) {
+    el("line", { x1: L, x2: W - Rr, y1: y(t), y2: y(t), class: "gl" }, svg);
+    el("text", { x: L - 6, y: y(t) + 4, "text-anchor": "end" }, svg).textContent = isPct ? (t * 100).toFixed(0) + " %" : fmtT(t);
+  }
+  for (const t of [0, 0.2, 0.35, 0.5, 0.7, 0.9, 1]) {
+    el("line", { x1: x(t), x2: x(t), y1: T + ph, y2: T + ph + 5, class: "ax" }, svg);
+    el("text", { x: x(t), y: T + ph + 18, "text-anchor": "middle" }, svg).textContent = (t * 100).toFixed(0) + " %";
+  }
+  el("text", { x: L + pw / 2, y: H - 4, "text-anchor": "middle" }, svg).textContent = "relative loss";
+  el("line", { x1: L, x2: W - Rr, y1: y(Math.max(lo, 0)), y2: y(Math.max(lo, 0)), class: "ax" }, svg);
+  for (const r of R) {
+    if (!Number.isFinite(get(r))) continue;
+    const lx = r.group === "none" ? 0.03 + (jitter(r.field_id) + 0.5) * 0.29 : r.loss;
+    const c = el("circle", { cx: x(lx), cy: y(get(r)), r: 5, class: "dot", fill: css(`--g${GROUPS.indexOf(r.group)}`) }, svg);
+    bindDot(c, r);
+  }
+}
+
+// ---------- render ----------
+function render() {
+  try { localStorage.setItem("frost-loss-view", JSON.stringify(S)); } catch (e) {}
+  $("method").value = S.method;
+  $("tol").max = S.unit === "ha" ? 25 : 35; $("tol").step = S.unit === "ha" ? 0.5 : 1;
+  if (S.tol > +$("tol").max) S.tol = +$("tol").max;
+  $("tol").value = S.tol;
+  $("tolv").textContent = S.unit === "ha" ? `± ${S.tol.toFixed(1)} ha` : `± ${S.tol.toFixed(0)} %`;
+  document.querySelectorAll("[data-u]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.u === S.unit)));
+  document.querySelectorAll("[data-k]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.k === S.kind)));
+  $("year").value = S.year;
+
+  const m = metrics(S.method, S.kind), base = isBase(S.method);
+  const inArea = new Set(ROWS.filter((r) => passArea(r) && (S.year === "all" || String(r.year) === S.year)).map((r) => r.field_id));
+  const gc = GROUPS.map((g) => m.R.filter((r) => r.group === g).length);
+  $("counts").innerHTML = `<span><b>${inArea.size}</b> fields pass the area match</span><span><b>${m.n}</b> scored by ${S.method}</span>` +
+    GROUPS.map((g, i) => `<span>${GL[g].split(" ")[0]} <b>${gc[i]}</b></span>`).join("");
+  const pl = metrics(S.method, S.kind === "event" ? "placebo" : "event");
+  $("stats").innerHTML = [
+    [f2(m.aucPaid), "AUC frost-paid vs no claim"], [f2(m.aucHeavy), "AUC heavy vs no claim"],
+    [f2(m.rhoG), "ρ loss group vs score"], [f2(m.rhoL), "ρ relative loss vs score, paid fields"],
+    [f2(pl.aucPaid), S.kind === "event" ? "same AUC on placebo nights" : "same AUC on frost nights"],
+  ].map(([n, s]) => `<div class="stat"><div class="num">${n}</div><div class="sub">${s}</div></div>`).join("");
+
+  const get1 = base ? (r) => r.q90 : (r) => r.share;
+  $("t1").textContent = base ? "Baseline value" : "Share of the field flagged as damaged";
+  groupChart($("c1"), m.R, get1, !base);
+  $("c2").parentElement.hidden = base;
+  if (!base) groupChart($("c2"), m.R, (r) => r.magnitude, false);
+  scatter($("c3"), m.R, get1, !base);
+
+  const rows = methods.map((mm) => { const a = metrics(mm, S.kind), p = metrics(mm, S.kind === "event" ? "placebo" : "event"); return { mm, a, p }; })
+    .sort((u, v) => (v.a.aucPaid ?? -1) - (u.a.aucPaid ?? -1));
+  $("tbl").querySelector("tbody").innerHTML = rows.map(({ mm, a, p }) => `<tr data-m="${mm}" aria-selected="${mm === S.method}">
+      <td class="mname">${mm}</td><td>${a.n}</td>
+      <td>${a.aucPaid == null ? "–" : `<span class="bar" style="width:${Math.max(0, (a.aucPaid - 0.5) * 120)}px"></span>${a.aucPaid.toFixed(2)}`}</td>
+      <td>${f2(a.aucHeavy)}</td><td>${f2(a.rhoG)}</td><td>${f2(a.rhoL)}</td>
+      ${a.med.map((v) => `<td>${v == null ? "–" : isBase(mm) ? fmtT(v) : (v * 100).toFixed(1) + " %"}</td>`).join("")}
+      <td>${f2(p.aucPaid)}</td></tr>`).join("");
+  $("tbl").querySelectorAll("tbody tr").forEach((tr) => tr.addEventListener("click", () => { S.method = tr.dataset.m; render(); }));
+  $("tbl").querySelector("th:last-child").textContent = S.kind === "event" ? "Placebo AUC" : "Frost-night AUC";
+}
+$("method").addEventListener("change", (e) => { S.method = e.target.value; render(); });
+$("tol").addEventListener("input", (e) => { S.tol = +e.target.value; render(); });
+document.querySelectorAll("[data-u]").forEach((b) => b.addEventListener("click", () => { S.unit = b.dataset.u; S.tol = S.unit === "ha" ? 25 : 35; render(); }));
+document.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { S.kind = b.dataset.k; render(); }));
+$("year").addEventListener("change", (e) => { S.year = e.target.value; render(); });
+if (!methods.includes(S.method)) S.method = methods[0];
+render();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
