@@ -1,7 +1,7 @@
 # Tutti Frosti: frost damage maps from satellite images
 
-This project maps **frost damage in crop fields as a damage map**, using only Sentinel-2 satellite images, and ranks
-fields by how much harvest they lost.
+This project makes **frost damage maps of crop fields** from Sentinel-2 satellite images alone, and ranks fields by
+how much harvest they lost.
 It was built and tested on wheat fields in southern Brazil, using the Brazilian public crop-insurance records
 (PSR, 2016-2024) as ground truth.
 
