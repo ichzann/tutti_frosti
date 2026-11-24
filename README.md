@@ -1,6 +1,7 @@
 # Tutti Frosti: frost damage maps from satellite images
 
-This project estimates **how much harvest a field lost to frost, pixel by pixel**, using only Sentinel-2 satellite images.
+This project maps **frost damage in crop fields as a damage map**, using only Sentinel-2 satellite images, and ranks
+fields by how much harvest they lost.
 It was built and tested on wheat fields in southern Brazil, using the Brazilian public crop-insurance records
 (PSR, 2016-2024) as ground truth.
 
@@ -35,22 +36,43 @@ Instead of hand-designing one method, I set up a fixed test and let AI agents se
 
 ## The method explained: season analogues (`c_r4b`)
 
-This is not the very top scorer, but it is within 0.01 of the best on both final tests, and it is the easiest to explain.
+This is one of the best methods, and it is the easiest to explain.
 The idea: **a damaged field's season looks like the seasons of other fields that were damaged.**
+
+In short: every pixel of a new field is compared with a library of fields whose insurance result is known.
+The most similar fields "vote" with their losses, and the average of their losses is the pixel's damage value.
 
 1. **Make a season curve for every pixel.** For each pixel, take the reflectance in all 10 Sentinel-2 bands on every
    clear date and place it on a common calendar (every 8 days, from early April to mid-November). The result is a
    short "film" of how that pixel greened up, peaked and ripened.
-2. **Keep a library of known fields.** For every training field we store its average season curve and its insurance
-   result: the paid loss, or 0.15 for "no claim" (0.85 when the loss was paid but the amount is unknown).
+2. **Keep a library of known fields.** For every training field, the library stores one curve (the average over the whole
+   field) and its insurance result: the paid loss, or 0.15 for "no claim" (0.85 when a loss was paid but the amount is unknown).
 3. **Compare with flexible timing.** Each pixel's curve is compared with every field in the library using *dynamic time
    warping*. This lets the curves shift up to ±48 days, so a field sown three weeks later can still match a field with
    the same shape of season.
-4. **Ask the 40 most similar fields.** The pixel's damage value is the average loss of the 40 closest library fields.
+4. **Average the 40 most similar fields.** The pixel's damage value is the average loss of the 40 closest library fields.
+   The pixel is not put into a group; it gets a number.
 5. **Field score** = mean over all pixels of the field.
 
-No model weights are trained: the labels enter only through the library. Only two settings were tuned (the ±48-day
-window and k = 40), and both were picked by cross-validation that leaves one year out. Code: `methods/c_r4b/`.
+No model weights are trained: the labels enter only through the library. Code: `methods/c_r4b/`.
+
+### Limitations
+
+- **Many design choices were tested on the development fields** (bands, curve type, calendar, the ±48 days, the 40
+  neighbours), and about 15 methods were compared there. The development score is therefore optimistic; the held-out
+  scores are the honest numbers.
+- **The map is not checked at pixel level.** The library holds whole-field curves and the labels are whole-field
+  insurance results, and only the field average was scored. A pixel's value says "this pixel looks like fields that lost
+  X"; differences inside a field can also come from edges, soil or sowing.
+- **It is not frost-specific.** The whole season shape is matched, so the method can also pick up things that go along
+  with claims: region, sowing date, variety, drought or a bad year. Leaving whole years out during development and
+  the within-year score (0.700) reduce this, but do not rule it out.
+- **Labels are partly imputed.** "No claim" only means the loss was below about 35 %, set to 0.15; paid fields with an
+  unknown amount are set to 0.85. The scores are therefore compressed and are only good for ranking fields.
+- **Same-season fields in the library on the held-out tests.** During development, fields from the year being scored
+  were left out of the library. On both held-out tests, the library held all development fields, including fields of
+  the same season that may be nearby and hit by the same frost. In real use, this season's insurance results would not
+  be known yet when the map is made.
 
 ## Results
 
