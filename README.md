@@ -92,3 +92,9 @@ python -m competition.score dev c_r4b      # score a method on the development f
 The field data package (about 3 GB) and the raw insurance records are not in this repository: the records contain
 personal data (names, tax IDs, exact locations). They are public from the Brazilian Ministry of Agriculture
 (SISSER / PSR open data, CC-BY) and can be rebuilt with `validation/brazil_psr/`.
+
+## Note on AI use
+
+This project was vibe-coded: the code was written with AI coding assistants. AI was used only for writing code and
+in the exploration phase, where agents searched for ways to define and recognise damage. The project idea, the data
+choices, the test rules and the decisions were my own.
