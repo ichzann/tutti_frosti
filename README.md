@@ -1,5 +1,7 @@
 # Tutti Frosti: frost damage maps from satellite images
 
+> **Research prototype:** This repository is the cleaned export of the initial research phase. Its core building blocks—Sentinel-2 data/QA helpers (`data/s2.py`, `data/s2qa.py`), the sealed evaluation framework (`competition/`), and the season-analogue method (`methods/c_r4b/`)—serve as the foundation for the planned open-source Python package **Tutti Frosti** (Apache-2.0), which will combine weather forecasts, terrain modeling, and post-frost verification in a tested, installable library.
+
 This project makes **frost damage maps of crop fields** from Sentinel-2 satellite images alone, and ranks fields by
 how much harvest they lost.
 It was built and tested on wheat fields in southern Brazil, using the Brazilian public crop-insurance records
@@ -89,12 +91,9 @@ Concordance C: the share of field pairs ranked in the right order (0.5 = random,
 The agent-built methods rank fields clearly better than the simple baselines, which are close to random.
 The drop on the fresh set shows the methods are not yet stable across new fields.
 
-## Status: prototype
+## Status: research prototype
 
-This is a **prototype and the final result of this phase**. The methods can still be improved, and more labelled fields
-(more years, regions and crops) would most likely help most, since the analogue method improves directly as the
-library grows. I cannot continue the search for now because of storage and computing limits: the satellite data
-alone takes tens of gigabytes.
+This repository is the **cleaned export of the initial research phase**. The satellite-only methods can still be improved—and combining satellite observations with weather forecasts and terrain data, plus expanding labelled fields across more years, regions, and crops, is the natural next step. Rather than extending this exploratory codebase directly, the proven components (`data/s2.py`, `data/s2qa.py`, `competition/`, `methods/c_r4b/`) are planned to be rebuilt into the installable, automatically tested **Tutti Frosti** Python library (with CI and documentation).
 
 ## Repository
 
@@ -117,6 +116,4 @@ personal data (names, tax IDs, exact locations). They are public from the Brazil
 
 ## Note on AI use
 
-This project was vibe-coded: the code was written with AI coding assistants. AI was used only for writing code and
-in the exploration phase, where agents searched for ways to define and recognise damage. The project idea, the data
-choices, the test rules and the decisions were my own.
+AI coding assistants were used during implementation and in the structured method-exploration loop described above. Problem definition, data curation, the sealed evaluation protocol, and all architectural and methodological decisions were made by the author. In the planned follow-up package, the retained methods and data helpers will be re-implemented with clean interfaces, automated tests, and continuous integration.
